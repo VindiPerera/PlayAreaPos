@@ -351,6 +351,25 @@
         </div>
       </Link>
 
+      <Link :href="route('packages.index')" v-if="HasRole(['Admin', 'Manager'])">
+        <div class="dashboard-card bg-[#7c3aed]">
+          <div class="card-content">
+            <div class="icon-container">
+              <img
+                src="/images/dashboard/packages.png"
+                class="icon"
+                alt="Packages"
+              />
+            </div>
+            <div class="text-container">
+              <p class="title">Packages</p>
+              <p class="description">
+                Create and manage play packages for kids and elders with flexible pricing and time allocation for enhanced customer experience.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Link>
 
 
     </div>
