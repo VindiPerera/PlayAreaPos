@@ -371,6 +371,26 @@
         </div>
       </Link>
 
+      <Link :href="route('coins.index')" v-if="HasRole(['Admin', 'Manager'])">
+        <div class="dashboard-card bg-[#0f766e]">
+          <div class="card-content">
+            <div class="icon-container">
+              <img
+                src="/images/dashboard/coupons.png"
+                class="icon"
+                alt="Coins"
+              />
+            </div>
+            <div class="text-container">
+              <p class="title">Coins</p>
+              <p class="description">
+                Add games, assign coin-category products, enter daily coin counts, and export daily coins report as PDF.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Link>
+
 
     </div>
   </div>

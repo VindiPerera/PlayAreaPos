@@ -13,6 +13,8 @@ use App\Http\Controllers\ColorController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\SizeController;
 use App\Http\Controllers\PackageController;
+use App\Http\Controllers\PlayAreaBillingController;
+use App\Http\Controllers\CoinController;
 
 use App\Http\Controllers\QuotationController;
 
@@ -85,6 +87,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/pos', [PosController::class, 'getProduct'])->name('pos.getProduct');
     Route::post('/get-coupon', [PosController::class, 'getCoupon'])->name('pos.getCoupon');
     Route::post('/pos/submit', [PosController::class, 'submit'])->name('pos.checkout');
+    Route::post('/play-area/session/create', [PlayAreaBillingController::class, 'createSession'])->name('play-area.session.create');
+    Route::post('/play-area/session/fetch', [PlayAreaBillingController::class, 'getSessionByBarcode'])->name('play-area.session.fetch');
+    Route::post('/play-area/session/close', [PlayAreaBillingController::class, 'closeSession'])->name('play-area.session.close');
+    Route::get('/play-area/session/{id}/barcode', [PlayAreaBillingController::class, 'printBarcode'])->name('play-area.barcode.print');
     Route::resource('payment', PaymentController::class);
     Route::resource('reports', ReportController::class);
     Route::get('/batch-management/search', [ReportController::class, 'searchByCode']);
@@ -94,6 +100,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('sizes', SizeController::class);
     Route::resource('packages', PackageController::class);
     Route::post('/packages/{package}/calculate-price', [PackageController::class, 'calculatePrice'])->name('packages.calculate-price');
+    Route::get('/coins', [CoinController::class, 'index'])->name('coins.index');
+    Route::post('/coins/games', [CoinController::class, 'storeGame'])->name('coins.games.store');
+    Route::post('/coins/entries', [CoinController::class, 'upsertDailyCount'])->name('coins.entries.upsert');
+    Route::get('/coins/report/daily', [CoinController::class, 'dailyReport'])->name('coins.report.daily');
     Route::resource('employees', EmployeeController::class);
     Route::resource('transactionHistory', TransactionHistoryController::class );
     Route::post('/transactions/delete', [TransactionHistoryController::class, 'destroy'])->name('transactions.delete');

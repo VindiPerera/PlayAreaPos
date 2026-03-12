@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\Color;
 use App\Models\Coupon;
 use App\Models\Customer;
+use App\Models\Package;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
@@ -33,6 +34,7 @@ class PosController extends Controller
         $colors = Color::orderBy('created_at', 'desc')->get();
         $sizes = Size::orderBy('created_at', 'desc')->get();
         $allemployee = Employee::orderBy('created_at', 'desc')->get();
+        $packages = Package::where('is_active', true)->orderBy('name')->get();
 
 
         // Render the page for GET requests
@@ -42,6 +44,7 @@ class PosController extends Controller
             'loggedInUser' => Auth::user(),
             'allcategories' => $allcategories,
             'allemployee' => $allemployee,
+            'packages' => $packages,
             'colors' => $colors,
             'sizes' => $sizes,
         ]);
