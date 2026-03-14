@@ -166,6 +166,50 @@ class CoinController extends Controller
         ]);
     }
 
+    public function entriesHistory(Request $request)
+    {
+        if (!Gate::allows('hasRole', ['Admin', 'Manager'])) {
+            abort(403, 'Unauthorized');
+        }
+
+        $from = Carbon::parse($request->input('from', now()->subDays(30)->toDateString()))->toDateString();
+        $to   = Carbon::parse($request->input('to',   now()->toDateString()))->toDateString();
+
+        $entries = GameCoinEntry::with(['game:id,name,coin_product_id', 'game.coinProduct:id,name,selling_price'])
+            ->whereBetween('entry_date', [$from, $to])
+            ->orderByDesc('entry_date')
+            ->orderBy('game_id')
+            ->get();
+
+        // Group by date for the summary rows
+        $grouped = $entries->groupBy(fn ($e) => Carbon::parse($e->entry_date)->format('Y-m-d'));
+
+        $rows = $grouped->map(function ($dayEntries, $date) {
+            return [
+                'date'             => $date,
+                'total_coin_count' => (int) $dayEntries->sum('coin_count'),
+                'total_amount'     => (float) $dayEntries->sum('total_amount'),
+                'games'            => $dayEntries->map(fn ($e) => [
+                    'game_name'       => $e->game?->name ?? '-',
+                    'coin_product'    => $e->game?->coinProduct?->name ?? '-',
+                    'coin_price'      => (float) $e->coin_price,
+                    'coin_count'      => (int) $e->coin_count,
+                    'total_amount'    => (float) $e->total_amount,
+                ])->values(),
+            ];
+        })->values();
+
+        return response()->json([
+            'from'    => $from,
+            'to'      => $to,
+            'rows'    => $rows,
+            'summary' => [
+                'total_coin_count' => (int) $entries->sum('coin_count'),
+                'total_amount'     => (float) $entries->sum('total_amount'),
+            ],
+        ]);
+    }
+
     private function ensureCoinProduct(int $productId): void
     {
         $coinCategoryIds = Category::query()

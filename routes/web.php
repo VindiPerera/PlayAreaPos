@@ -88,7 +88,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/get-coupon', [PosController::class, 'getCoupon'])->name('pos.getCoupon');
     Route::post('/pos/submit', [PosController::class, 'submit'])->name('pos.checkout');
     Route::post('/play-area/session/create', [PlayAreaBillingController::class, 'createSession'])->name('play-area.session.create');
+    Route::get('/play-area/session/active', [PlayAreaBillingController::class, 'listActiveSessions'])->name('play-area.session.active');
+    Route::post('/play-area/session/{id}/open', [PlayAreaBillingController::class, 'openSession'])->name('play-area.session.open');
     Route::post('/play-area/session/fetch', [PlayAreaBillingController::class, 'getSessionByBarcode'])->name('play-area.session.fetch');
+    Route::post('/play-area/session/items/sync', [PlayAreaBillingController::class, 'syncSessionItems'])->name('play-area.session.items.sync');
     Route::post('/play-area/session/close', [PlayAreaBillingController::class, 'closeSession'])->name('play-area.session.close');
     Route::get('/play-area/session/{id}/barcode', [PlayAreaBillingController::class, 'printBarcode'])->name('play-area.barcode.print');
     Route::resource('payment', PaymentController::class);
@@ -104,6 +107,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/coins/games', [CoinController::class, 'storeGame'])->name('coins.games.store');
     Route::post('/coins/entries', [CoinController::class, 'upsertDailyCount'])->name('coins.entries.upsert');
     Route::get('/coins/report/daily', [CoinController::class, 'dailyReport'])->name('coins.report.daily');
+    Route::get('/coins/entries/history', [CoinController::class, 'entriesHistory'])->name('coins.entries.history');
     Route::resource('employees', EmployeeController::class);
     Route::resource('transactionHistory', TransactionHistoryController::class );
     Route::post('/transactions/delete', [TransactionHistoryController::class, 'destroy'])->name('transactions.delete');

@@ -17,6 +17,29 @@ use Illuminate\Support\Facades\Gate;
 
 class PlayAreaBillingController extends Controller
 {
+    public function listActiveSessions()
+    {
+        if (!Gate::allows('hasRole', ['Admin', 'Cashier'])) {
+            abort(403, 'Unauthorized');
+        }
+
+        $sessions = PlayAreaSession::with(['package', 'items.product'])
+            ->whereIn('status', ['active', 'pending'])
+            ->orderByDesc('id')
+            ->get()
+            ->map(function (PlayAreaSession $session) {
+                return [
+                    'session' => $session,
+                    'totals' => $this->calculateSessionTotals($session),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'sessions' => $sessions,
+        ]);
+    }
+
     public function createSession(Request $request)
     {
         if (!Gate::allows('hasRole', ['Admin', 'Cashier'])) {
@@ -43,6 +66,7 @@ class PlayAreaBillingController extends Controller
         $packageTotal = 0;
         $start = now();
         $expectedEnd = null;
+        $open = $request->boolean('open', true);
 
         if ($package) {
             if (!is_null($customerAge) && $customerAge > $package->age_threshold && $package->additional_payment) {
@@ -55,7 +79,7 @@ class PlayAreaBillingController extends Controller
         DB::beginTransaction();
 
         try {
-            $temporaryBarcode = 'TMP' . now()->format('ymdHis') . random_int(1000, 9999);
+            $temporaryBarcode = $open ? 'TMP' . now()->format('ymdHis') . random_int(1000, 9999) : null;
 
             $session = PlayAreaSession::create([
                 'barcode' => $temporaryBarcode,
@@ -72,15 +96,17 @@ class PlayAreaBillingController extends Controller
                 'package_total' => $packageTotal,
                 'extra_charge' => $package?->extra_charge ?? 0,
                 'extra_charge_per_minutes' => max(1, (int) ($package?->extra_charge_per_minutes ?? 1)),
-                'start_time' => $start,
-                'expected_end_time' => $expectedEnd,
+                'start_time' => $open ? $start : null,
+                'expected_end_time' => $open ? $expectedEnd : null,
                 'note' => $request->input('note'),
-                'status' => 'active',
+                'status' => $open ? 'active' : 'pending',
             ]);
 
-            $session->update([
-                'barcode' => $this->generateEncryptedBarcode($session->id),
-            ]);
+            if ($open) {
+                $session->update([
+                    'barcode' => $this->generateEncryptedBarcode($session->id),
+                ]);
+            }
 
             $productsTotal = 0;
 
@@ -114,7 +140,7 @@ class PlayAreaBillingController extends Controller
             return response()->json([
                 'message' => 'Play area session created successfully.',
                 'session' => $session->fresh(['package', 'items.product']),
-                'barcode_print_url' => route('play-area.barcode.print', $session->id),
+                'barcode_print_url' => $open ? route('play-area.barcode.print', $session->id) : null,
             ]);
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -124,6 +150,42 @@ class PlayAreaBillingController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    public function openSession(Request $request, $id)
+    {
+        if (!Gate::allows('hasRole', ['Admin', 'Cashier'])) {
+            abort(403, 'Unauthorized');
+        }
+
+        $session = PlayAreaSession::with(['package', 'items.product'])->findOrFail($id);
+
+        if ($session->status !== 'pending') {
+            return response()->json(['message' => 'Session is not in pending state.'], 422);
+        }
+
+        $start = now();
+        $expectedEnd = $session->package_id
+            ? (clone $start)->addMinutes((int) $session->base_time_minutes)
+            : null;
+
+        $temporaryBarcode = 'TMP' . $start->format('ymdHis') . random_int(1000, 9999);
+
+        $session->update([
+            'barcode' => $temporaryBarcode,
+            'start_time' => $start,
+            'expected_end_time' => $expectedEnd,
+            'status' => 'active',
+        ]);
+
+        $session->update(['barcode' => $this->generateEncryptedBarcode($session->id)]);
+        $session->refresh()->load(['package', 'items.product']);
+
+        return response()->json([
+            'message' => 'Session opened successfully.',
+            'session' => $session,
+            'barcode_print_url' => route('play-area.barcode.print', $session->id),
+        ]);
     }
 
     public function getSessionByBarcode(Request $request)
@@ -286,6 +348,8 @@ class PlayAreaBillingController extends Controller
 
             DB::commit();
 
+            $totals['cash'] = $cash;
+
             return response()->json([
                 'message' => 'Play area session closed successfully.',
                 'session' => $session->fresh(['package', 'items.product']),
@@ -302,20 +366,123 @@ class PlayAreaBillingController extends Controller
         }
     }
 
+    public function syncSessionItems(Request $request)
+    {
+        if (!Gate::allows('hasRole', ['Admin', 'Cashier'])) {
+            abort(403, 'Unauthorized');
+        }
+
+        $validated = $request->validate([
+            'products' => 'nullable|array',
+            'products.*.id' => 'required|exists:products,id',
+            'products.*.quantity' => 'required|integer|min:1',
+        ]);
+
+        if (!$request->filled('barcode') && !$request->filled('session_id')) {
+            return response()->json(['message' => 'session_id or barcode is required.'], 422);
+        }
+
+        $session = $request->filled('barcode')
+            ? PlayAreaSession::with(['items.product', 'package'])->where('barcode', $request->input('barcode'))->first()
+            : PlayAreaSession::with(['items.product', 'package'])->find($request->input('session_id'));
+
+        if (!$session) {
+            return response()->json([
+                'message' => 'Session not found.',
+            ], 404);
+        }
+
+        if ($session->status === 'closed') {
+            return response()->json([
+                'message' => 'Cannot update products for a closed session.',
+            ], 422);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            PlayAreaSessionItem::where('play_area_session_id', $session->id)->delete();
+
+            $productsTotal = 0;
+
+            foreach ($request->input('products', []) as $item) {
+                $product = Product::find($item['id']);
+
+                if (!$product) {
+                    continue;
+                }
+
+                $qty = max(1, (int) $item['quantity']);
+                $lineTotal = $qty * (float) $product->selling_price;
+
+                PlayAreaSessionItem::create([
+                    'play_area_session_id' => $session->id,
+                    'product_id' => $product->id,
+                    'quantity' => $qty,
+                    'unit_price' => $product->selling_price,
+                    'total_price' => $lineTotal,
+                ]);
+
+                $productsTotal += $lineTotal;
+            }
+
+            $session->update([
+                'products_total' => $productsTotal,
+                'final_total' => (float) $session->package_total + $productsTotal,
+            ]);
+
+            DB::commit();
+
+            $session->refresh()->load(['package', 'items.product']);
+            $totals = $this->calculateSessionTotals($session);
+
+            return response()->json([
+                'message' => 'Session items updated successfully.',
+                'session' => $session,
+                'totals' => $totals,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Failed to update session items.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function printBarcode($id)
     {
         $session = PlayAreaSession::with('package')->findOrFail($id);
+        $company = \App\Models\CompanyInfo::first();
 
         return view('barcode-play-area', [
             'session' => $session,
+            'company' => $company,
         ]);
     }
 
     private function calculateSessionTotals(PlayAreaSession $session): array
     {
         $now = now();
-        $start = Carbon::parse($session->start_time);
         $productsTotal = (float) $session->items->sum('total_price');
+
+        // Pending session — no start time yet
+        if (!$session->start_time) {
+            return [
+                'elapsed_minutes' => 0,
+                'extra_minutes' => 0,
+                'extra_amount' => 0.0,
+                'products_total' => round($productsTotal, 2),
+                'package_total' => round((float) $session->package_total, 2),
+                'final_total' => round((float) $session->package_total + $productsTotal, 2),
+                'expected_end_time' => null,
+                'start_time' => null,
+                'current_time' => $now->format('Y-m-d H:i:s'),
+            ];
+        }
+
+        $start = Carbon::parse($session->start_time);
 
         // No package — pure product order, no time tracking
         if (!$session->package_id) {

@@ -107,8 +107,107 @@
           </div>
         </div>
       </div>
+
+      <!-- ═══════ Coin Entries History ═══════ -->
+      <div class="w-full bg-white border-4 border-black rounded-3xl p-6 space-y-4">
+        <div class="flex md:flex-row flex-col md:items-center items-start md:justify-between gap-4">
+          <div>
+            <p class="text-2xl font-bold text-black">Coin Entries History</p>
+            <p class="text-gray-600">All saved coin entries — grouped by date.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2">
+              <label class="text-sm font-semibold text-gray-600">From</label>
+              <input v-model="historyFrom" type="date" class="px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="text-sm font-semibold text-gray-600">To</label>
+              <input v-model="historyTo" type="date" class="px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            </div>
+            <button @click="loadHistory" :disabled="historyLoading"
+              class="px-4 py-2 font-semibold text-white bg-slate-700 rounded-lg hover:bg-slate-800 disabled:opacity-50">
+              {{ historyLoading ? 'Loading...' : 'View' }}
+            </button>
+            <button @click="downloadHistoryPdf" :disabled="historyRows.length === 0"
+              class="px-4 py-2 font-semibold text-white bg-orange-600 rounded-lg hover:bg-orange-700 disabled:opacity-50">
+              Download PDF
+            </button>
+          </div>
+        </div>
+
+        <div v-if="historyLoading" class="text-center py-10 text-gray-400 text-lg">Loading entries...</div>
+
+        <div v-else-if="historyRows.length === 0" class="text-center py-10 text-gray-400 text-lg">
+          No entries found for the selected date range.
+        </div>
+
+        <div v-else class="overflow-x-auto">
+          <table class="w-full border border-gray-300 text-left text-sm">
+            <thead class="bg-gray-100">
+              <tr>
+                <th class="px-4 py-3 border font-semibold">Date</th>
+                <th class="px-4 py-3 border font-semibold">Game</th>
+                <th class="px-4 py-3 border font-semibold">Coin Product</th>
+                <th class="px-4 py-3 border font-semibold text-right">Coin Price</th>
+                <th class="px-4 py-3 border font-semibold text-right">Coin Count</th>
+                <th class="px-4 py-3 border font-semibold text-right">Total Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template v-for="day in historyPagedRows" :key="day.date">
+                <!-- Per-game rows -->
+                <tr v-for="(g, gi) in day.games" :key="day.date + '-' + gi" class="hover:bg-gray-50">
+                  <td class="px-4 py-2 border text-gray-500">{{ gi === 0 ? day.date : '' }}</td>
+                  <td class="px-4 py-2 border">{{ g.game_name }}</td>
+                  <td class="px-4 py-2 border text-gray-600">{{ g.coin_product }}</td>
+                  <td class="px-4 py-2 border text-right">{{ money(g.coin_price) }} LKR</td>
+                  <td class="px-4 py-2 border text-right font-medium">{{ g.coin_count }}</td>
+                  <td class="px-4 py-2 border text-right font-medium">{{ money(g.total_amount) }} LKR</td>
+                </tr>
+                <!-- Daily subtotal row -->
+                <tr class="bg-blue-50 font-bold text-blue-900">
+                  <td class="px-4 py-2 border" colspan="4">Day Total — {{ day.date }}</td>
+                  <td class="px-4 py-2 border text-right">{{ day.total_coin_count }}</td>
+                  <td class="px-4 py-2 border text-right">{{ money(day.total_amount) }} LKR</td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div v-if="historyTotalPages > 1" class="flex items-center justify-between pt-2">
+          <p class="text-sm text-gray-500">Page {{ historyPage }} of {{ historyTotalPages }}</p>
+          <div class="flex gap-2">
+            <button
+              @click="historyPage--"
+              :disabled="historyPage === 1"
+              class="px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+            >Previous</button>
+            <button
+              @click="historyPage++"
+              :disabled="historyPage === historyTotalPages"
+              class="px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+            >Next</button>
+          </div>
+        </div>
+
+        <!-- Grand summary -->
+        <div v-if="historyRows.length > 0" class="grid md:grid-cols-2 grid-cols-1 gap-4 pt-2">
+          <div class="p-4 bg-green-100 border border-green-300 rounded-xl">
+            <p class="text-sm font-semibold text-green-700">Total Coins Count (Period)</p>
+            <p class="text-3xl font-bold text-green-900">{{ historySummary.total_coin_count }}</p>
+          </div>
+          <div class="p-4 bg-blue-100 border border-blue-300 rounded-xl">
+            <p class="text-sm font-semibold text-blue-700">Total Coins Amount (Period)</p>
+            <p class="text-3xl font-bold text-blue-900">{{ money(historySummary.total_amount) }} LKR</p>
+          </div>
+        </div>
+      </div>
+
     </div>
 
+    <!-- Add Game Modal -->
     <div v-if="showGameModal" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
       <div class="w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden">
         <div class="flex items-center justify-between px-6 py-4 border-b">
@@ -251,8 +350,7 @@ const saveDailyCount = async (game) => {
   }
 };
 
-const downloadDailyReportPdf = async () => {
-  try {
+const downloadDailyReportPdf = async () => {  try {
     const response = await axios.get(route("coins.report.daily"), {
       params: { date: selectedDate.value },
     });
@@ -293,4 +391,84 @@ const downloadDailyReportPdf = async () => {
     alert(error.response?.data?.message || "Failed to generate report.");
   }
 };
+
+// ── Coin Entries History ──
+const today = new Date().toISOString().slice(0, 10);
+const thirtyAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+const historyFrom = ref(thirtyAgo);
+const historyTo = ref(today);
+const historyLoading = ref(false);
+const historyRows = ref([]);
+const historySummary = ref({ total_coin_count: 0, total_amount: 0 });
+const historyPage = ref(1);
+const historyPerPage = 5;
+const historyTotalPages = computed(() => Math.max(1, Math.ceil(historyRows.value.length / historyPerPage)));
+const historyPagedRows = computed(() =>
+  historyRows.value.slice((historyPage.value - 1) * historyPerPage, historyPage.value * historyPerPage)
+);
+
+const loadHistory = async () => {
+  historyLoading.value = true;
+  try {
+    const res = await axios.get(route('coins.entries.history'), {
+      params: { from: historyFrom.value, to: historyTo.value },
+    });
+    historyRows.value = res.data.rows;
+    historySummary.value = res.data.summary;
+    historyPage.value = 1;
+  } catch (err) {
+    alert(err.response?.data?.message || 'Failed to load history.');
+  } finally {
+    historyLoading.value = false;
+  }
+};
+
+const downloadHistoryPdf = () => {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+
+  doc.setFontSize(18);
+  doc.text('Coin Entries Report', 40, 50);
+  doc.setFontSize(11);
+  doc.text(`Period: ${historyFrom.value}  to  ${historyTo.value}`, 40, 72);
+
+  const body = [];
+  historyRows.value.forEach(day => {
+    day.games.forEach((g, gi) => {
+      body.push([
+        gi === 0 ? day.date : '',
+        g.game_name,
+        g.coin_product,
+        money(g.coin_price),
+        g.coin_count,
+        money(g.total_amount),
+      ]);
+    });
+    // subtotal row per day
+    body.push([
+      { content: `Day Total — ${day.date}`, colSpan: 4, styles: { fontStyle: 'bold', fillColor: [219, 234, 254] } },
+      { content: String(day.total_coin_count), styles: { fontStyle: 'bold', fillColor: [219, 234, 254], halign: 'right' } },
+      { content: money(day.total_amount) + ' LKR', styles: { fontStyle: 'bold', fillColor: [219, 234, 254], halign: 'right' } },
+    ]);
+  });
+
+  autoTable(doc, {
+    startY: 90,
+    head: [['Date', 'Game', 'Coin Product', 'Coin Price', 'Coin Count', 'Total Amount']],
+    body,
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [37, 99, 235] },
+    columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' } },
+  });
+
+  const finalY = doc.lastAutoTable?.finalY || 120;
+  doc.setFontSize(12);
+  doc.setFont(undefined, 'bold');
+  doc.text(`Grand Total Coins: ${historySummary.value.total_coin_count}`, 40, finalY + 24);
+  doc.text(`Grand Total Amount: ${money(historySummary.value.total_amount)} LKR`, 40, finalY + 44);
+
+  doc.save(`coin-entries-report-${historyFrom.value}-to-${historyTo.value}.pdf`);
+};
+
+// Auto-load history on mount
+loadHistory();
 </script>

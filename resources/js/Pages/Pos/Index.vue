@@ -1,82 +1,98 @@
-<template>
+﻿<template>
 
     <Head title="POS" />
     <Banner />
     <div class="flex flex-col items-center justify-start min-h-screen py-6 space-y-3 bg-gray-100 md:px-20 px-4">
-        <!-- Include the Header -->
         <Header />
 
-        <div class="w-full md:w-5/6 w-full py-4 space-y-8">
-            <div class="flex items-center justify-between space-x-4">
-                <div class="flex w-full space-x-4">
-                    <Link href="/">
-                    <img src="/images/back-arrow.png" class="w-14 h-14" />
-                    </Link>
-                    <p class="pt-3 text-4xl font-bold tracking-wide text-black uppercase">
-                        PoS
-                    </p>
+        <div class="w-full md:w-5/6 py-4 space-y-8">
+            <!-- Header -->
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <Link href="/"><img src="/images/back-arrow.png" class="w-14 h-14" /></Link>
+                    <p class="pt-3 text-4xl font-bold tracking-wide text-black uppercase">PoS</p>
                 </div>
-                <div class="flex items-center justify-between w-full space-x-4">
-                    <p class="text-3xl font-bold tracking-wide text-black">
-                        Order ID : #{{ orderid  }}
-                    </p>
-                    <div class="flex items-center space-x-3">
-                        <p class="text-3xl text-black cursor-pointer">
-                        <i @click="refreshData" class="ri-restart-line"></i>
-                        </p>
-                    </div>
-                </div>
+                <button @click="loadActiveSessions" :disabled="loadingActiveSessions"
+                    class="px-6 py-3 border-2 border-black text-black text-xl font-semibold rounded-xl hover:bg-black hover:text-white transition-all disabled:opacity-50">
+                    {{ loadingActiveSessions ? 'Refreshing...' : 'Refresh Open Services' }}
+                </button>
             </div>
 
-            <div class="flex md:flex-row flex-col w-full gap-4">
-                <div class="flex flex-col md:w-1/2 w-full">
-                    <div class="flex flex-col w-full">
-                        <div class="p-8 space-y-5 bg-black shadow-lg rounded-3xl">
-                            <p class="mb-2 text-4xl font-bold text-white">Customer Details</p>
-                            <div class="mb-3">
-                                <input v-model="customer.name" type="text" placeholder="Enter Customer Name"
-                                    class="w-full px-4 py-4 text-black placeholder-black bg-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                            </div>
-                            <div class="flex gap-2 mb-3 text-black">
-                                <!-- <select
-                  v-model="customer.countryCode"
-                  class="w-[60px] px-2 py-2 bg-white placeholder-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="+94">+94</option>
-                  <option value="+1">+1</option>
-                  <option value="+44">+44</option>
-                </select> -->
-                                <input v-model="customer.contactNumber" type="text"
-                                    placeholder="Enter Customer Contact Number"
-                                    class="flex-grow px-4 py-4 text-black placeholder-black bg-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                            </div>
-                            <div class="text-black">
-                                <input v-model="customer.email" type="email" placeholder="Enter Customer Email"
-                                    class="w-full px-4 py-4 text-black placeholder-black bg-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                            </div>
+            <!-- Two-column layout -->
+            <div class="flex md:flex-row flex-col w-full gap-4 items-start">
 
-                            <div class="text-black">
-                                <select required v-model="employee_id" id="employee_id"
-                                    class="w-full px-4 py-4 text-black placeholder-black bg-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <option value="" disabled selected>Select an Employee</option>
-                                    <option v-for="employee in allemployee" :key="employee.id" :value="employee.id">
-                                        {{ employee.name }}
-                                    </option>
-                                </select>
-                            </div>
+                <!-- ====== LEFT: Customers Panel ====== -->
+                <div class="flex flex-col md:w-1/2 w-full border-4 border-black rounded-3xl p-6 bg-white">
+                    <h2 class="text-4xl font-bold text-black">Customers</h2>
+                    <p class="text-gray-500 text-lg mb-4">Click a square to open billing</p>
 
+                    <div class="flex gap-3 mb-4">
+                        <button @click="showAddCustomerModal = true"
+                            class="flex-1 py-4 text-xl font-bold border-2 border-gray-400 text-gray-800 rounded-xl hover:bg-gray-100 transition-all">
+                            Add Customer
+                        </button>
+                        <button @click="switchToLiveBill"
+                            class="flex-1 py-4 text-xl font-bold rounded-xl transition-all bg-black text-white hover:bg-gray-800">
+                            Live Bill
+                        </button>
+                    </div>
+
+                    <!-- Cards -->
+                    <div v-if="loadingActiveSessions" class="flex items-center justify-center py-12">
+                        <p class="text-gray-400 text-xl">Loading...</p>
+                    </div>
+                    <div v-else-if="activeSessions.length === 0" class="flex items-center justify-center py-12">
+                        <p class="text-gray-400 text-lg text-center">No active sessions.<br>Click "Add Customer" to begin.</p>
+                    </div>
+                    <div v-else class="grid grid-cols-2 gap-3 overflow-y-auto" style="max-height:55vh;">
+                        <div v-for="sess in activeSessions" :key="sess.session.id"
+                            @click="selectSession(sess)"
+                            class="p-4 border-2 rounded-2xl cursor-pointer transition-all select-none"
+                            :class="selectedSessionId === sess.session.id ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white hover:border-blue-300'">
+                            <p class="text-lg font-bold text-black truncate">{{ sess.session.customer_name || 'Walk-in' }}</p>
+                            <p class="text-gray-500 text-sm truncate">{{ sess.session.customer_contact || '-' }}</p>
+
+                            <!-- Package name -->
+                            <p v-if="sess.session.package" class="text-xs text-blue-700 font-semibold mt-1 truncate">
+                                {{ sess.session.package.name }}
+                            </p>
+
+                            <!-- Status badges & timer -->
+                            <div class="mt-2">
+                                <template v-if="sess.session.status === 'active' && sess.session.package_id">
+                                    <span class="px-2 py-0.5 text-xs font-bold bg-green-100 text-green-700 rounded-full">ACTIVE</span>
+                                    <p class="text-sm font-bold text-blue-700 mt-1">
+                                        &#9201; {{ sessionTimers[sess.session.id]?.elapsed ?? 0 }}
+                                        / {{ sess.session.base_time_minutes }} mins
+                                    </p>
+                                    <p v-if="(sessionTimers[sess.session.id]?.extra_minutes ?? 0) > 0"
+                                        class="text-xs text-red-600 font-bold">
+                                        +{{ sessionTimers[sess.session.id].extra_minutes }} mins overtime
+                                    </p>
+                                </template>
+                                <template v-else-if="sess.session.status === 'active'">
+                                    <span class="px-2 py-0.5 text-xs font-bold bg-green-100 text-green-700 rounded-full">ACTIVE</span>
+                                </template>
+                                <template v-else>
+                                    <span class="px-2 py-0.5 text-xs font-bold bg-orange-100 text-orange-600 rounded-full">Pending Open Bill</span>
+                                    <p class="text-xs text-gray-400 mt-1">No barcode yet</p>
+                                </template>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-1">Items: {{ sess.session.items?.length ?? 0 }}</p>
                         </div>
                     </div>
                 </div>
-                <div class="flex md:w-1/2 w-full p-6 border-4 border-black rounded-3xl">
-                    <div class="flex flex-col items-start justify-start w-full md:px-6 px-2">
-                        <div class="flex items-center justify-between w-full">
-                            <h2 class="md:text-5xl text-4xl font-bold text-black">Billing Details</h2>
-                            <div class="flex items-center gap-5">
-                                <span class="flex cursor-pointer" @click="showPackagePicker = true">
-                                    <p class="text-xl text-blue-600 font-bold">Package</p>
-                                    <i class="ri-price-tag-3-line text-2xl text-blue-600 ml-2"></i>
-                                </span>
+
+                <!-- ====== RIGHT: Billing Details Panel ====== -->
+                <div class="flex md:w-1/2 w-full p-6 border-4 border-black rounded-3xl bg-white">
+                    <div class="flex flex-col w-full space-y-4">
+
+                        <!-- Header row -->
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-4xl font-bold text-black">Billing Details</h2>
+                            <div class="flex items-center gap-4">
+                                <span v-if="isLiveBillMode"
+                                    class="px-3 py-1 bg-orange-500 text-white text-sm font-bold rounded-full">LIVE BILL</span>
                                 <span class="flex cursor-pointer" @click="isSelectModalOpen = true">
                                     <p class="text-xl text-blue-600 font-bold">User Manual</p>
                                     <img src="/images/selectpsoduct.svg" class="w-6 h-6 ml-2" />
@@ -84,399 +100,395 @@
                             </div>
                         </div>
 
+                        <!-- Barcode scanner (always visible) -->
+                        <div class="flex items-stretch w-full border-2 border-black rounded-2xl overflow-hidden">
+                            <input v-model="form.barcode" id="barcodeInput" type="text"
+                                placeholder="Scan Product Barcode / Order Barcode"
+                                @keydown.enter.prevent="submitBarcode"
+                                class="flex-1 h-16 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <button @click="submitBarcode"
+                                class="px-10 text-2xl font-bold tracking-wider text-white uppercase bg-blue-600 hover:bg-blue-700 transition-all">
+                                ENTER
+                            </button>
+                        </div>
 
-                        <div class="flex items-end justify-between w-full my-3 border-2 border-black rounded-2xl">
-                            <div class="flex items-center justify-center w-3/4">
-                                <label for="search" class="text-xl font-medium text-gray-800"></label>
-                                <input v-model="form.barcode" id="search" type="text" placeholder="Scan Product Barcode / Order Barcode"
-                                    class="w-full h-16 px-4 rounded-l-2xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <!-- ── STATE: fetched order checkout ── -->
+                        <div v-if="fetchedOrder" class="space-y-4">
+                            <div class="flex items-center justify-between bg-gray-50 rounded-2xl p-4">
+                                <div>
+                                    <p class="text-sm text-gray-500">Order: <span class="font-bold text-black">{{ fetchedOrder.barcode }}</span></p>
+                                    <p class="text-sm text-gray-500">Customer: <span class="font-bold text-black">{{ fetchedOrder.customer_name || 'Walk-in' }}</span></p>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-lg font-semibold"
+                                        :class="fetchedOrder.status === 'closed' ? 'text-red-600' : 'text-green-600'">
+                                        {{ fetchedOrder.status === 'closed' ? 'Closed' : 'Active' }}
+                                    </span>
+                                    <button @click="fetchedOrder = null" class="text-3xl text-gray-400 hover:text-black leading-none">&times;</button>
+                                </div>
                             </div>
-                            <div class="flex items-end justify-end w-1/4">
-                                <button @click="submitBarcode"
-                                    class="px-12 py-4 text-2xl font-bold tracking-wider text-white uppercase bg-blue-600 rounded-r-xl">
-                                    Enter
+
+                            <div v-if="fetchedOrder.items?.length" class="space-y-1">
+                                <p class="font-bold text-black">Products</p>
+                                <div v-for="item in fetchedOrder.items" :key="item.id"
+                                    class="flex justify-between text-gray-700 border-b pb-1">
+                                    <span>{{ item.product?.name || '-' }} &times; {{ item.quantity }}</span>
+                                    <span>{{ Number(item.total_price).toFixed(2) }} LKR</span>
+                                </div>
+                            </div>
+
+                            <div v-if="fetchedOrder.package_id" class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                <p class="text-sm text-blue-700 font-semibold">{{ fetchedOrder.package?.name }}</p>
+                                <p class="text-4xl font-bold text-blue-900">{{ elapsedDisplay }} <span class="text-lg">mins</span></p>
+                                <div v-if="orderTotals.extra_minutes > 0" class="text-sm text-red-600 mt-1">
+                                    Overtime: {{ orderTotals.extra_minutes }} mins &mdash; {{ Number(orderTotals.extra_amount).toFixed(2) }} LKR
+                                </div>
+                            </div>
+
+                            <div class="space-y-1 border-t pt-3">
+                                <div v-if="fetchedOrder.package_id" class="flex justify-between">
+                                    <span>Package Total</span><span>{{ Number(orderTotals.package_total).toFixed(2) }} LKR</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>Products Total</span><span>{{ Number(orderTotals.products_total).toFixed(2) }} LKR</span>
+                                </div>
+                                <div v-if="fetchedOrder.package_id && orderTotals.extra_amount > 0" class="flex justify-between text-red-600">
+                                    <span>Overtime Charge</span><span>{{ Number(orderTotals.extra_amount).toFixed(2) }} LKR</span>
+                                </div>
+                                <div class="flex justify-between text-2xl font-bold border-t pt-2">
+                                    <span>Final Total</span><span>{{ Number(orderTotals.final_total).toFixed(2) }} LKR</span>
+                                </div>
+                            </div>
+
+                            <div class="grid md:grid-cols-3 gap-3 items-center">
+                                <div class="flex items-center gap-2">
+                                    <div @click="checkoutPaymentMethod = 'cash'"
+                                        :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold text-lg', checkoutPaymentMethod === 'cash' ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 text-gray-600']">Cash</div>
+                                    <div @click="checkoutPaymentMethod = 'card'"
+                                        :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold text-lg', checkoutPaymentMethod === 'card' ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 text-gray-600']">Card</div>
+                                </div>
+                                <input v-model.number="checkoutCash" type="number" min="0" placeholder="Cash Amount"
+                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl text-black focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                <button @click="confirmFetchedOrder" :disabled="loadingClose || fetchedOrder.status === 'closed'"
+                                    class="w-full py-3 text-lg font-bold text-white uppercase bg-black rounded-xl disabled:opacity-50">
+                                    {{ loadingClose ? 'Processing...' : 'Confirm & Print Bill' }}
                                 </button>
                             </div>
                         </div>
 
-                        <!-- <div class="max-w-xs relative space-y-3">
-              <label for="search" class="text-gray-900">
-                Type the product name to search
-              </label>
+                        <!-- ── STATE: session selected ── -->
+                        <template v-else-if="selectedSession && !isLiveBillMode">
 
-              <input
-                v-model="form.barcode"
-                id="search"
-                type="text"
-                placeholder="Enter BarCode Here!"
-                class="w-full h-16 px-4 rounded-l-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+                            <!-- Package card -->
+                            <div v-if="selectedSession.session.package_id"
+                                class="rounded-2xl p-5 space-y-3"
+                                :class="selectedSession.session.status === 'active' ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 border border-gray-200'">
 
-              <ul
-                v-if="searchResults.length"
-                class="w-full rounded bg-white border border-gray-300 px-4 py-2 space-y-1 absolute z-10"
-              >
-                <li class="px-1 pt-1 pb-2 font-bold border-b border-gray-200">
-                  Showing {{ searchResults.length }} results
-                </li>
-                <li
-                  v-for="product in searchResults"
-                  :key="product.id"
-                  @click="selectProduct(product.name)"
-                  class="cursor-pointer hover:bg-gray-100 p-1"
-                >
-                  {{ product.name }}
-                </li>
-              </ul>
-
-              <p v-if="form.barcode" class="text-lg pt-2 absolute">
-                You have selected:
-                <span class="font-semibold">{{ form.barcode }}</span>
-              </p>
-            </div> -->
-
-                        <div class="w-full text-center">
-                            <p v-if="products.length === 0 && !selectedPackagePreview" class="text-2xl text-red-500">
-                                No Products to show
-                            </p>
-                        </div>
-
-                        <div v-if="selectedPackagePreview" class="flex items-center w-full py-4 border-b border-black">
-                            <div class="flex w-1/6 items-center justify-center">
-                                <i class="ri-price-tag-3-line text-4xl text-blue-700"></i>
-                            </div>
-                            <div class="flex flex-col justify-between w-5/6">
-                                <p class="text-xl font-semibold text-black">{{ selectedPackagePreview.name }}</p>
-                                <p class="text-sm text-gray-700">Service Package • {{ selectedPackagePreview.base_time_minutes }} mins</p>
-                                <p class="text-2xl font-bold text-black text-right">{{ previewPackageTotal.toFixed(2) }} LKR</p>
-                            </div>
-                            <div class="flex justify-end w-1/6">
-                                <p @click="clearSelectedPackage"
-                                    class="text-3xl text-black border-2 border-black rounded-full cursor-pointer">
-                                    <i class="ri-close-line"></i>
-                                </p>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center w-full py-4 border-b border-black" v-for="item in products"
-                            :key="item.id">
-                            <div class="flex w-1/6">
-                                <img :src="item.image ? `/${item.image}` : '/images/placeholder.jpg'
-                                    " alt="Supplier Image" class="object-cover w-16 h-16 border border-gray-500" />
-                            </div>
-                            <div class="flex flex-col justify-between w-5/6">
-                                <p class="text-xl text-black">
-                                    {{ item.name }}
-
-
-                                </p>
-
-                                <div
-  v-if="Number(item.is_promotion) === 1"
-  class="mt-2 rounded-lg border border-gray-200 p-3 bg-gray-50"
->
-  <p class="text-md font-bold text-black mb-2">
-    Pack items
-  </p>
-
-  <!-- Scrollable list -->
-  <ul
-    class="mt-1 list-disc pl-5 space-y-1 max-h-40 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
-  >
-    <li
-      v-for="pi in item.promotion_items ?? []"
-      :key="pi.id"
-      class="text-sm text-gray-700 bg-white rounded-md px-2 py-1 shadow-sm hover:bg-gray-50"
-    >
-
-      <span v-if="pi.product">  {{ pi.product.name }}</span>
-      <span class="ml-2 text-lg text-dark">× {{ pi.quantity }}</span>
-    </li>
-  </ul>
-</div>
-                                <div class="flex items-center justify-between w-full">
-                                    <div class="flex space-x-4">
-                                        <p @click="incrementQuantity(item.id)"
-                                            class="flex items-center justify-center w-8 h-8 text-white bg-black rounded cursor-pointer">
-                                            <i class="ri-add-line"></i>
-                                        </p>
-                                        <!-- <p
-                      class="bg-[#D9D9D9] border-2 border-black h-8 w-8 text-black flex justify-center items-center rounded"
-                    >
-                      {{ item.quantity }}
-                    </p> -->
-                                        <input type="number" v-model="item.quantity" min="0"
-                                            class="bg-[#D9D9D9] border-2 border-black h-8 w-24 text-black flex justify-center items-center rounded text-center" />
-                                        <p @click="decrementQuantity(item.id)"
-                                            class="flex items-center justify-center w-8 h-8 text-white bg-black rounded cursor-pointer">
-                                            <i class="ri-subtract-line"></i>
-                                        </p>
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <p class="text-xl font-bold text-blue-900">{{ selectedSession.session.package?.name }}</p>
+                                        <p class="text-gray-600 text-sm">Base: {{ selectedSession.session.base_time_minutes }} mins &bull; {{ Number(selectedSession.session.package_total).toFixed(2) }} LKR</p>
                                     </div>
-                                    <div class="flex items-center justify-center">
-                                        <div>
-                                            <p @click="applyDiscount(item.id)" v-if="
-                                                item.discount &&
-                                                item.discount > 0 &&
-                                                item.apply_discount == false &&
-                                                !appliedCoupon
-                                            "
-                                                class="cursor-pointer py-1 text-center px-4 bg-green-600 rounded-xl font-bold text-white tracking-wider">
-                                                Apply {{ item.discount }}% off
-                                            </p>
+                                    <span v-if="selectedSession.session.status === 'pending'"
+                                        class="px-3 py-1 bg-orange-100 text-orange-600 text-sm font-bold rounded-full">
+                                        Timer starts on Open Bill
+                                    </span>
+                                </div>
 
-                                            <p v-if="
-                                                item.discount &&
-                                                item.discount > 0 &&
-                                                item.apply_discount == true &&
-                                                !appliedCoupon
-                                            " @click="removeDiscount(item.id)"
-                                                class="cursor-pointer py-1 text-center px-4 bg-red-600 rounded-xl font-bold text-white tracking-wider">
-                                                Remove {{ item.discount }}% Off
-                                            </p>
-                                            <p class="text-2xl font-bold text-black text-right">
-                                                {{ item.selling_price }}
-                                                LKR
-                                            </p>
+                                <!-- Live timer (only active) -->
+                                <div v-if="selectedSession.session.status === 'active'">
+                                    <div class="flex items-baseline gap-2">
+                                        <p class="text-5xl font-bold text-blue-900">{{ currentTimer?.elapsed ?? 0 }}</p>
+                                        <p class="text-xl text-blue-600">/ {{ selectedSession.session.base_time_minutes }} mins</p>
+                                    </div>
+                                    <!-- Progress bar -->
+                                    <div class="w-full bg-blue-200 rounded-full h-3 mt-2">
+                                        <div class="bg-blue-600 h-3 rounded-full transition-all"
+                                            :style="{ width: Math.min(100, ((currentTimer?.elapsed ?? 0) / selectedSession.session.base_time_minutes) * 100) + '%' }">
                                         </div>
+                                    </div>
+                                    <div v-if="(currentTimer?.extra_minutes ?? 0) > 0"
+                                        class="mt-3 bg-red-50 border border-red-200 rounded-xl p-3">
+                                        <p class="text-red-600 font-bold text-lg">Overtime: {{ currentTimer.extra_minutes }} mins</p>
+                                        <p class="text-red-600">Extra Charge: {{ Number(currentTimer.extra_amount ?? 0).toFixed(2) }} LKR</p>
                                     </div>
                                 </div>
                             </div>
-                            <div class="flex justify-end w-1/6">
-                                <p @click="removeProduct(item.id)"
-                                    class="text-3xl text-black border-2 border-black rounded-full cursor-pointer">
-                                    <i class="ri-close-line"></i>
-                                </p>
-                            </div>
-                        </div>
-                        <div class="w-full pt-6 space-y-2">
-                            <div class="flex items-center justify-between w-full px-8">
-                                <p class="text-xl">Products Total</p>
-                                <p class="text-xl">{{ subtotal }} LKR</p>
-                            </div>
-                            <div v-if="selectedPackagePreview" class="flex items-center justify-between w-full px-8">
-                                <p class="text-xl">Service Package</p>
-                                <p class="text-xl">{{ previewPackageTotal.toFixed(2) }} LKR</p>
-                            </div>
-                            <div class="flex items-center justify-between w-full px-8 py-2 pb-4 border-b border-black">
-                                <p class="text-xl">Discount</p>
-                                <p class="text-xl">( {{ totalDiscount }} LKR )</p>
-                            </div>
-                            <!-- <div class="flex items-center justify-between w-full px-8 pt-4 pb-4 border-b border-black">
-                <p class="text-xl text-black">Custom Discount</p>
-                <span>
-                  <CurrencyInput
-                    v-model="custom_discount"
-                  />
-                  <span class="ml-2">LKR</span>
-                </span>
-              </div> -->
 
-
-
-
-                            <div class="flex items-center justify-between w-full px-8 pt-4">
-                                <p class="text-3xl font-bold text-black">Estimated Total</p>
-                                <p class="text-3xl font-bold text-black">{{ estimatedTotal }} LKR</p>
+                            <!-- Products list -->
+                            <div v-if="sessionItems.length === 0" class="text-center py-4">
+                                <p class="text-red-500 text-xl">No products in this customer cart.</p>
                             </div>
-                        </div>
 
-                        <!-- Confirm / Print Barcode actions -->
-                        <div class="flex items-center justify-center w-full mt-6">
-                            <div class="w-full grid md:grid-cols-2 gap-3">
-                                <button @click="confirmOrderDirect" type="button"
-                                    :disabled="loadingCreateOrder || loadingClose || (products.length === 0 && !selectedPackageId)"
-                                    class="w-full bg-black py-4 text-2xl font-bold tracking-wider text-center text-white uppercase rounded-xl disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <i class="pr-4 ri-check-double-line"></i>
-                                    {{ (loadingCreateOrder || loadingClose) ? 'Processing...' : 'Confirm Order' }}
+                            <div class="space-y-2" style="max-height:28vh; overflow-y:auto;">
+                                <div v-for="item in sessionItems" :key="item.id"
+                                    class="flex items-center gap-3 py-2 border-b border-gray-200">
+                                    <img :src="item.product?.image ? `/${item.product.image}` : '/images/placeholder.jpg'"
+                                        class="w-12 h-12 object-cover border border-gray-300 rounded flex-shrink-0" />
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-base font-semibold text-black truncate">{{ item.product?.name || '-' }}</p>
+                                        <p class="text-sm text-gray-500">{{ Number(item.unit_price).toFixed(2) }} LKR each</p>
+                                    </div>
+                                    <div class="flex items-center gap-1 flex-shrink-0">
+                                        <button @click="decrementSessionItem(item)"
+                                            class="w-7 h-7 bg-gray-200 hover:bg-gray-300 rounded font-bold text-lg leading-none flex items-center justify-center transition-all">-</button>
+                                        <span class="w-8 text-center font-bold">{{ item.quantity }}</span>
+                                        <button @click="incrementSessionItem(item)"
+                                            class="w-7 h-7 bg-gray-200 hover:bg-gray-300 rounded font-bold text-lg leading-none flex items-center justify-center transition-all">+</button>
+                                    </div>
+                                    <p class="w-24 text-right font-bold text-sm flex-shrink-0">{{ Number(item.total_price).toFixed(2) }} LKR</p>
+                                    <button @click="removeSessionItem(item)"
+                                        class="text-red-400 hover:text-red-600 text-2xl leading-none flex-shrink-0">&times;</button>
+                                </div>
+                            </div>
+
+                            <!-- Totals -->
+                            <div class="space-y-1 border-t pt-3">
+                                <div v-if="selectedSession.session.package_id" class="flex justify-between">
+                                    <span class="text-lg">Package Total</span>
+                                    <span class="text-lg">{{ Number(selectedSession.session.package_total ?? 0).toFixed(2) }} LKR</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-lg">Products Total</span>
+                                    <span class="text-lg">{{ Number(selectedSession.session.products_total ?? 0).toFixed(2) }} LKR</span>
+                                </div>
+                                <div v-if="(currentTimer?.extra_minutes ?? 0) > 0" class="flex justify-between text-red-600">
+                                    <span class="text-lg">Extra Time ({{ currentTimer.extra_minutes }} mins)</span>
+                                    <span class="text-lg">{{ Number(currentTimer.extra_amount ?? 0).toFixed(2) }} LKR</span>
+                                </div>
+                                <div class="flex justify-between text-2xl font-bold border-t pt-2">
+                                    <span>Total</span>
+                                    <span>{{ sessionTotalDisplay }} LKR</span>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div v-if="selectedSession.session.status === 'pending'" class="space-y-3">
+                                <div class="px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-xl">
+                                    <p class="text-yellow-700">Click "Open Bill &amp; Print" to generate barcode and start service timer.</p>
+                                </div>
+                                <button @click="openBillAndPrint" :disabled="loadingOpenBill"
+                                    class="w-full py-4 text-xl font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50">
+                                    <i class="ri-barcode-line mr-2"></i>
+                                    {{ loadingOpenBill ? 'Opening...' : 'Open Bill & Print' }}
+                                </button>
+                            </div>
+
+                            <div v-else class="space-y-3">
+                                <button @click="reprintBarcode"
+                                    class="w-full py-3 border-2 border-black text-black text-xl font-bold rounded-xl hover:bg-gray-100 transition-all">
+                                    <i class="ri-barcode-line mr-2"></i>Reprint Barcode
                                 </button>
 
-                                <button @click="printBarcodeForOrder" type="button"
-                                    :disabled="loadingCreateOrder || loadingClose || (products.length === 0 && !selectedPackageId)"
-                                    class="w-full bg-blue-600 py-4 text-2xl font-bold tracking-wider text-center text-white uppercase rounded-xl disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <i class="pr-4 ri-barcode-line"></i>
-                                    {{ loadingCreateOrder ? 'Please wait...' : 'Print Barcode' }}
+                                <!-- Confirm panel toggle -->
+                                <div v-if="!showConfirmPanel">
+                                    <button @click="showConfirmPanel = true"
+                                        class="w-full py-4 bg-black text-white text-xl font-bold rounded-xl hover:bg-gray-800 transition-all">
+                                        <i class="ri-check-double-line mr-2"></i>Confirm &amp; Print Final Bill
+                                    </button>
+                                </div>
+                                <div v-else class="border-2 border-black rounded-2xl p-5 space-y-4">
+                                    <p class="text-xl font-bold text-black">Final Total: {{ sessionTotalDisplay }} LKR</p>
+                                    <div class="flex gap-3 items-center">
+                                        <p class="font-semibold">Payment:</p>
+                                        <div @click="checkoutPaymentMethod = 'cash'"
+                                            :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold transition-all', checkoutPaymentMethod === 'cash' ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 text-gray-600']">Cash</div>
+                                        <div @click="checkoutPaymentMethod = 'card'"
+                                            :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold transition-all', checkoutPaymentMethod === 'card' ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 text-gray-600']">Card</div>
+                                    </div>
+                                    <input v-model.number="checkoutCash" type="number" min="0" placeholder="Cash Amount"
+                                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl text-black focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    <div class="flex gap-3">
+                                        <button @click="showConfirmPanel = false"
+                                            class="flex-1 py-3 border border-gray-400 text-gray-700 font-bold rounded-xl">Cancel</button>
+                                        <button @click="confirmSessionFinalBill" :disabled="loadingClose"
+                                            class="flex-1 py-3 bg-black text-white font-bold text-lg rounded-xl disabled:opacity-50">
+                                            {{ loadingClose ? 'Processing...' : 'Confirm' }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- ── STATE: Live Bill ── -->
+                        <template v-else-if="isLiveBillMode">
+                            <div class="space-y-2" style="max-height:30vh;overflow-y:auto;">
+                                <div v-if="liveBillProducts.length === 0" class="text-center py-4">
+                                    <p class="text-red-500 text-xl">No products added yet. Scan or use User Manual.</p>
+                                </div>
+                                <div v-for="item in liveBillProducts" :key="item.id"
+                                    class="flex items-center gap-3 py-2 border-b border-gray-200">
+                                    <img :src="item.image ? `/${item.image}` : '/images/placeholder.jpg'"
+                                        class="w-12 h-12 object-cover border border-gray-300 rounded flex-shrink-0" />
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-base font-semibold truncate">{{ item.name }}</p>
+                                        <p class="text-sm text-gray-500">{{ Number(item.selling_price).toFixed(2) }} LKR each</p>
+                                    </div>
+                                    <div class="flex items-center gap-1 flex-shrink-0">
+                                        <button @click="item.quantity > 1 ? item.quantity-- : removeLiveBillItem(item)"
+                                            class="w-7 h-7 bg-gray-200 hover:bg-gray-300 rounded font-bold text-lg leading-none flex items-center justify-center">-</button>
+                                        <span class="w-8 text-center font-bold">{{ item.quantity }}</span>
+                                        <button @click="item.quantity++"
+                                            class="w-7 h-7 bg-gray-200 hover:bg-gray-300 rounded font-bold text-lg leading-none flex items-center justify-center">+</button>
+                                    </div>
+                                    <p class="w-24 text-right font-bold text-sm flex-shrink-0">{{ Number(item.selling_price * item.quantity).toFixed(2) }} LKR</p>
+                                    <button @click="removeLiveBillItem(item)" class="text-red-400 hover:text-red-600 text-2xl leading-none">&times;</button>
+                                </div>
+                            </div>
+
+                            <div class="space-y-1 border-t pt-3">
+                                <div class="flex justify-between text-2xl font-bold">
+                                    <span>Total</span><span>{{ liveBillTotal }} LKR</span>
+                                </div>
+                            </div>
+
+                            <div v-if="!showLiveBillConfirm">
+                                <button @click="showLiveBillConfirm = true" :disabled="liveBillProducts.length === 0"
+                                    class="w-full py-4 bg-black text-white text-xl font-bold rounded-xl hover:bg-gray-800 transition-all disabled:opacity-50">
+                                    <i class="ri-check-double-line mr-2"></i>Confirm &amp; Print Final Bill
                                 </button>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ─── Session Checkout ─── -->
-            <div class="w-full p-8 bg-white rounded-3xl shadow-lg space-y-4">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-4xl font-bold text-black">Order Checkout</h3>
-                    <p class="text-gray-500 text-lg">Use top barcode field to fetch order</p>
-                </div>
-
-                <div v-if="fetchedOrder" class="rounded-2xl border border-gray-200 shadow-sm p-5 space-y-5">
-                    <!-- Header -->
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm text-gray-500">Order Barcode</p>
-                            <p class="text-xl font-bold text-black">{{ fetchedOrder.barcode }}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-sm text-gray-500">Customer</p>
-                            <p class="text-xl font-bold text-black">{{ fetchedOrder.customer_name || 'Walk-in' }}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-sm text-gray-500">Status</p>
-                            <p class="text-lg font-semibold" :class="fetchedOrder.status === 'closed' ? 'text-red-600' : 'text-green-600'">
-                                {{ fetchedOrder.status === 'closed' ? 'Closed' : 'Active' }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Product items list -->
-                    <div v-if="fetchedOrder.items && fetchedOrder.items.length" class="space-y-2">
-                        <p class="font-bold text-black text-lg">Products</p>
-                        <div v-for="item in fetchedOrder.items" :key="item.id"
-                            class="flex justify-between text-gray-700 border-b pb-1 text-lg">
-                            <span>{{ item.product?.name || '—' }} × {{ item.quantity }}</span>
-                            <span>{{ Number(item.total_price).toFixed(2) }} LKR</span>
-                        </div>
-                    </div>
-                    <div v-else class="text-gray-400 text-lg">No products in this order.</div>
-
-                    <!-- Live service timer card (only for orders with service package) -->
-                    <div v-if="fetchedOrder.package_id" class="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                        <p class="text-sm text-blue-700 font-semibold">Service: {{ fetchedOrder.package?.name }}</p>
-                        <p class="text-5xl font-bold text-blue-900 mt-1">{{ elapsedDisplay }} mins</p>
-                        <div class="mt-2 text-sm text-blue-900 grid grid-cols-2 gap-2">
-                            <p>Extra Time: <span class="font-semibold">{{ orderTotals.extra_minutes }} mins</span></p>
-                            <p class="text-right">Extra Charge: <span class="font-semibold">{{ Number(orderTotals.extra_amount || 0).toFixed(2) }} LKR</span></p>
-                        </div>
-                    </div>
-
-                    <!-- Totals summary -->
-                    <div class="border-t pt-3 space-y-2 text-lg">
-                        <div v-if="fetchedOrder.package_id" class="flex justify-between">
-                            <span>Package Total</span><span>{{ Number(orderTotals.package_total || 0).toFixed(2) }} LKR</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span>Products Total</span><span>{{ Number(orderTotals.products_total || 0).toFixed(2) }} LKR</span>
-                        </div>
-                        <div v-if="fetchedOrder.package_id" class="flex justify-between">
-                            <span>Overtime Charge</span><span>{{ Number(orderTotals.extra_amount || 0).toFixed(2) }} LKR</span>
-                        </div>
-                        <div class="flex justify-between text-3xl font-bold border-t pt-2">
-                            <span>Final Total</span><span>{{ Number(orderTotals.final_total || 0).toFixed(2) }} LKR</span>
-                        </div>
-                    </div>
-
-                    <!-- Payment + Confirm -->
-                    <div class="grid md:grid-cols-3 gap-4 items-center pt-2">
-                        <div class="flex items-center space-x-3">
-                            <p class="text-lg font-semibold text-black">Payment:</p>
-                            <div @click="checkoutPaymentMethod = 'cash'"
-                                :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold transition-all', checkoutPaymentMethod === 'cash' ? 'bg-yellow-400 border-yellow-500 text-black' : 'border-gray-300 text-gray-700']">
-                                Cash
+                            <div v-else class="border-2 border-black rounded-2xl p-5 space-y-4">
+                                <p class="text-xl font-bold">Total: {{ liveBillTotal }} LKR</p>
+                                <div class="flex gap-3 items-center">
+                                    <p class="font-semibold">Payment:</p>
+                                    <div @click="liveBillPaymentMethod = 'cash'"
+                                        :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold', liveBillPaymentMethod === 'cash' ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 text-gray-600']">Cash</div>
+                                    <div @click="liveBillPaymentMethod = 'card'"
+                                        :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold', liveBillPaymentMethod === 'card' ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 text-gray-600']">Card</div>
+                                </div>
+                                <input v-model.number="liveBillCash" type="number" min="0" placeholder="Cash Amount"
+                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                <div class="flex gap-3">
+                                    <button @click="showLiveBillConfirm = false"
+                                        class="flex-1 py-3 border border-gray-400 font-bold rounded-xl">Cancel</button>
+                                    <button @click="confirmLiveBill" :disabled="loadingLiveBill"
+                                        class="flex-1 py-3 bg-black text-white font-bold text-lg rounded-xl disabled:opacity-50">
+                                        {{ loadingLiveBill ? 'Processing...' : 'Confirm' }}
+                                    </button>
+                                </div>
                             </div>
-                            <div @click="checkoutPaymentMethod = 'card'"
-                                :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold transition-all', checkoutPaymentMethod === 'card' ? 'bg-yellow-400 border-yellow-500 text-black' : 'border-gray-300 text-gray-700']">
-                                Card
+
+                            <button @click="isLiveBillMode = false; liveBillProducts = []"
+                                class="w-full py-2 text-gray-500 hover:text-black text-sm">&#8592; Cancel Live Bill</button>
+                        </template>
+
+                        <!-- ── STATE: nothing selected ── -->
+                        <template v-else>
+                            <div class="text-center py-4">
+                                <p class="text-2xl text-red-500">No products in this customer cart.</p>
                             </div>
-                        </div>
-                        <input v-model.number="checkoutCash" type="number" min="0" placeholder="Cash Amount"
-                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl text-black text-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        <button @click="confirmBill" :disabled="loadingClose || fetchedOrder.status === 'closed'"
-                            class="w-full py-3 text-xl font-bold text-white uppercase bg-black rounded-xl disabled:opacity-50 disabled:cursor-not-allowed">
-                            {{ loadingClose ? 'Processing...' : 'Confirm Order & Print Bill' }}
-                        </button>
+                            <div class="px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-xl">
+                                <p class="text-yellow-700">Select a customer from the left panel or scan an order barcode to begin.</p>
+                            </div>
+                        </template>
+
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    <div v-if="showPackagePicker" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" @click.self="showPackagePicker = false">
-        <div class="w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden">
-            <div class="flex items-center justify-between px-8 py-5 border-b border-gray-200">
-                <h3 class="text-4xl font-bold text-black">Select Package</h3>
-                <button class="text-4xl text-black" @click="showPackagePicker = false">
-                    <i class="ri-close-line"></i>
+
+    <!-- ══ Add Customer Modal ══ -->
+    <div v-if="showAddCustomerModal" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+        @click.self="showAddCustomerModal = false">
+        <div class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden">
+            <div class="flex items-center justify-between px-8 py-5 border-b">
+                <h3 class="text-3xl font-bold">Add Customer</h3>
+                <button @click="showAddCustomerModal = false" class="text-4xl text-gray-400 hover:text-black">&times;</button>
+            </div>
+            <div class="p-8 space-y-4">
+                <input v-model="newSession.customerName" type="text" placeholder="Enter Customer Name"
+                    class="w-full px-4 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input v-model="newSession.customerContact" type="text" placeholder="Enter Customer Contact Number"
+                    class="w-full px-4 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <input v-model="newSession.customerEmail" type="email" placeholder="Enter Customer Email"
+                    class="w-full px-4 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <select v-model="newSession.employeeId"
+                    class="w-full px-4 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="" disabled>Select an Employee</option>
+                    <option v-for="emp in allemployee" :key="emp.id" :value="emp.id">{{ emp.name }}</option>
+                </select>
+                <div class="flex gap-3 items-center">
+                    <button type="button" @click="showPackagePicker = true"
+                        class="flex-1 px-4 py-4 border-2 border-blue-500 text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition-all">
+                        {{ newSessionPackagePreview ? newSessionPackagePreview.name : 'Select Package (Optional)' }}
+                    </button>
+                    <button v-if="newSession.packageId" @click="newSession.packageId = ''"
+                        class="px-4 py-4 border-2 border-red-400 text-red-500 rounded-xl">&times;</button>
+                </div>
+                <p v-if="newSessionPackagePreview" class="text-gray-500 text-sm px-2">
+                    {{ newSessionPackagePreview.base_time_minutes }} mins &bull;
+                    {{ Number(newSessionPackagePreview.base_price).toFixed(2) }} LKR
+                </p>
+                <button @click="createNewSession" :disabled="loadingCreateSession"
+                    class="w-full py-4 text-xl font-bold bg-black text-white rounded-xl hover:bg-gray-800 transition-all disabled:opacity-50">
+                    {{ loadingCreateSession ? 'Creating...' : 'Add Customer' }}
                 </button>
             </div>
+        </div>
+    </div>
 
-            <div class="p-6 border-b border-gray-200">
+    <!-- ══ Package Picker Modal ══ -->
+    <div v-if="showPackagePicker" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+        @click.self="showPackagePicker = false">
+        <div class="w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden">
+            <div class="flex items-center justify-between px-8 py-5 border-b">
+                <h3 class="text-4xl font-bold">Select Package</h3>
+                <button @click="showPackagePicker = false" class="text-4xl text-gray-400 hover:text-black">&times;</button>
+            </div>
+            <div class="p-6 border-b">
                 <div class="grid md:grid-cols-4 gap-3">
-                    <input
-                        v-model="packageSearch"
-                        type="text"
-                        placeholder="Search package..."
-                        class="px-4 py-3 border border-gray-300 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <select
-                        v-model="packageDurationFilter"
-                        class="px-4 py-3 border border-gray-300 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
+                    <input v-model="packageSearch" type="text" placeholder="Search package..."
+                        class="px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <select v-model="packageDurationFilter"
+                        class="px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="all">All Durations</option>
                         <option value="short">Up to 60 mins</option>
                         <option value="medium">61-120 mins</option>
                         <option value="long">More than 120 mins</option>
                     </select>
-                    <select
-                        v-model="packagePriceFilter"
-                        class="px-4 py-3 border border-gray-300 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
+                    <select v-model="packagePriceFilter"
+                        class="px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="all">All Prices</option>
                         <option value="budget">Up to 1000 LKR</option>
                         <option value="standard">1001-3000 LKR</option>
                         <option value="premium">More than 3000 LKR</option>
                     </select>
-                    <button
-                        type="button"
-                        @click="resetPackageFilters"
-                        class="px-4 py-3 bg-blue-600 text-white rounded-xl text-lg font-semibold"
-                    >
-                        Reset
-                    </button>
+                    <button @click="packageSearch=''; packageDurationFilter='all'; packagePriceFilter='all'"
+                        class="px-4 py-3 bg-blue-600 text-white rounded-xl font-semibold">Reset</button>
                 </div>
             </div>
-
             <div class="p-6 max-h-[62vh] overflow-y-auto">
                 <div class="grid md:grid-cols-3 gap-4">
-                    <button
-                        type="button"
-                        @click="selectPackage('')"
+                    <button type="button" @click="newSession.packageId = ''; showPackagePicker = false"
                         class="text-left p-5 rounded-2xl border-2 transition-all"
-                        :class="selectedPackageId === '' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'"
-                    >
-                        <p class="text-2xl font-bold text-black">No Service Package</p>
+                        :class="newSession.packageId === '' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'">
+                        <p class="text-2xl font-bold">No Service Package</p>
                         <p class="text-gray-600 mt-2">Products only billing</p>
                     </button>
-
-                    <button
-                        type="button"
-                        v-for="pkg in filteredPackages"
-                        :key="pkg.id"
-                        @click="selectPackage(pkg.id)"
+                    <button type="button" v-for="pkg in filteredPackages" :key="pkg.id"
+                        @click="newSession.packageId = pkg.id; showPackagePicker = false"
                         class="text-left p-5 rounded-2xl border-2 transition-all"
-                        :class="Number(selectedPackageId) === Number(pkg.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'"
-                    >
-                        <div class="flex items-start justify-between gap-3">
-                            <p class="text-2xl font-bold text-black leading-tight">{{ pkg.name }}</p>
-                            <span class="text-sm font-semibold bg-green-100 text-green-700 px-3 py-1 rounded-full">
+                        :class="Number(newSession.packageId) === Number(pkg.id) ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'">
+                        <div class="flex items-start justify-between gap-2">
+                            <p class="text-xl font-bold leading-tight">{{ pkg.name }}</p>
+                            <span class="text-sm font-semibold bg-green-100 text-green-700 px-3 py-1 rounded-full whitespace-nowrap">
                                 {{ Number(pkg.base_price).toFixed(2) }} LKR
                             </span>
                         </div>
-                        <p class="text-gray-700 mt-3">Duration: <span class="font-semibold">{{ pkg.base_time_minutes }} mins</span></p>
-                        <p class="text-gray-700">Overtime: +{{ Number(pkg.extra_charge || 0).toFixed(2) }} per {{ Number(pkg.extra_charge_per_minutes || 1) }} mins</p>
-                        <p v-if="Number(pkg.additional_payment || 0) > 0" class="text-gray-700">
-                            Age Extra: +{{ Number(pkg.additional_payment).toFixed(2) }} (age &gt; {{ pkg.age_threshold }})
-                        </p>
+                        <p class="text-gray-600 mt-2">Duration: <span class="font-semibold">{{ pkg.base_time_minutes }} mins</span></p>
+                        <p class="text-gray-600">Overtime: +{{ Number(pkg.extra_charge || 0).toFixed(2) }} LKR / {{ pkg.extra_charge_per_minutes }} mins</p>
                     </button>
                 </div>
-
-                <div v-if="filteredPackages.length === 0" class="text-center py-12 text-gray-500 text-xl">
-                    No packages found for the selected filters.
+                <div v-if="filteredPackages.length === 0" class="text-center py-12 text-gray-400 text-xl">
+                    No packages found.
                 </div>
             </div>
         </div>
     </div>
 
     <AlertModel v-model:open="isAlertModalOpen" :message="message" />
-
     <SelectProductModel v-model:open="isSelectModalOpen" :allcategories="allcategories" :colors="colors" :sizes="sizes"
         @selected-products="handleSelectedProducts" />
     <Footer />
@@ -491,49 +503,11 @@ import { ref, onMounted, onBeforeUnmount, computed, reactive } from "vue";
 import { Head } from "@inertiajs/vue3";
 import { Link } from "@inertiajs/vue3";
 import axios from "axios";
-import CurrencyInput from "@/Components/custom/CurrencyInput.vue";
 import SelectProductModel from "@/Components/custom/SelectProductModel.vue";
-import ProductAutoComplete from "@/Components/custom/ProductAutoComplete.vue";
-import { generateOrderId } from "@/Utils/Other.js";
 
-const product = ref(null);
-const error = ref(null);
-const products = ref([]);
-const isAlertModalOpen = ref(false);
-const message = ref("");
-const appliedCoupon = ref(null);
-const cash = ref(0);
-const custom_discount = ref(0);
-const isSelectModalOpen = ref(false);
-const custom_discount_type = ref('percent');
-const orderid = computed(() => generateOrderId());
-
-// ── Unified Billing State ──
-const selectedPackageId = ref("");
-const showPackagePicker = ref(false);
-const packageSearch = ref("");
-const packageDurationFilter = ref("all");
-const packagePriceFilter = ref("all");
-const createdSession = ref(null);
-const fetchedOrder = ref(null);
-const orderTotals = reactive({
-    package_total: 0,
-    extra_amount: 0,
-    products_total: 0,
-    final_total: 0,
-    extra_minutes: 0,
-    elapsed_minutes: 0,
-});
-const elapsedDisplay = ref(0);
-const checkoutPaymentMethod = ref("cash");
-const checkoutCash = ref(0);
-const loadingCreateOrder = ref(false);
-const loadingFetch = ref(false);
-const loadingClose = ref(false);
-let orderTimer = null;
-
+// ── Props ──
 const props = defineProps({
-    loggedInUser: Object, // Using backend product name to avoid messing with selected products
+    loggedInUser: Object,
     allcategories: Array,
     allemployee: Array,
     packages: Array,
@@ -541,206 +515,137 @@ const props = defineProps({
     sizes: Array,
 });
 
-const discount = ref(0);
+// ── Alert ──
+const isAlertModalOpen = ref(false);
+const message = ref("");
+const isSelectModalOpen = ref(false);
 
-const customer = ref({
-    name: "",
-    countryCode: "",
-    contactNumber: "",
-    email: "",
-});
+// ── Active Sessions ──
+const activeSessions = ref([]);
+const selectedSessionId = ref(null);
+const loadingActiveSessions = ref(false);
 
-const employee_id = ref("");
+const selectedSession = computed(
+    () => activeSessions.value.find(s => s.session.id === selectedSessionId.value) || null
+);
+const sessionItems = computed(() => selectedSession.value?.session?.items ?? []);
 
-const selectedPaymentMethod = ref("cash");
+// ── Timer system ──
+// sessionTimers[id] = { elapsed, extra_minutes, extra_amount }
+const sessionTimers = reactive({});
+let globalTimer = null;
 
-const refreshData = () => {
-    router.visit(route("pos.index"), {
-        preserveScroll: false, // Reset scroll
-        preserveState: false, // Reset component state
+const updateAllTimers = () => {
+    activeSessions.value.forEach(s => {
+        if (s.session.status === 'active' && s.session.start_time && s.session.package_id) {
+            const elapsed = Math.max(0, Math.floor((Date.now() - new Date(s.session.start_time).getTime()) / 60000));
+            const base = Number(s.session.base_time_minutes || 0);
+            const extra = Math.max(0, elapsed - base);
+            const perUnit = Math.max(1, Number(s.session.extra_charge_per_minutes || 1));
+            const units = extra > 0 ? Math.ceil(extra / perUnit) : 0;
+            const extraAmt = units * Number(s.session.extra_charge || 0);
+            sessionTimers[s.session.id] = {
+                elapsed,
+                extra_minutes: extra,
+                extra_amount: extraAmt,
+                final_total: Number(s.session.package_total || 0) + Number(s.session.products_total || 0) + extraAmt,
+            };
+        }
     });
 };
 
-const removeProduct = (id) => {
-    products.value = products.value.filter((item) => item.id !== id);
-};
-
-const removeCoupon = () => {
-    appliedCoupon.value = null; // Clear the applied coupon
-    couponForm.code = ""; // Clear the coupon field
-};
-
-const incrementQuantity = (id) => {
-    const product = products.value.find((item) => item.id === id);
-    if (product) {
-        product.quantity += 1;
-    }
-};
-
-const decrementQuantity = (id) => {
-    const product = products.value.find((item) => item.id === id);
-    if (product && product.quantity > 1) {
-        product.quantity -= 1;
-    }
-};
-
-const selectPackage = (packageId) => {
-    selectedPackageId.value = packageId;
-    showPackagePicker.value = false;
-
-    if (!packageId) {
-        isAlertModalOpen.value = true;
-        message.value = "Package cleared. Products only mode selected.";
-        return;
-    }
-
-    const selected = props.packages?.find((p) => Number(p.id) === Number(packageId));
-    if (selected) {
-        isAlertModalOpen.value = true;
-        message.value = `Package added: ${selected.name}`;
-    }
-};
-
-const clearSelectedPackage = () => {
-    selectedPackageId.value = "";
-    isAlertModalOpen.value = true;
-    message.value = "Package removed.";
-};
-
-const resetPackageFilters = () => {
-    packageSearch.value = "";
-    packageDurationFilter.value = "all";
-    packagePriceFilter.value = "all";
-};
-
-// const orderId = computed(() => {
-//   const timestamp = Date.now().toString(36).toUpperCase(); // Convert timestamp to a base-36 string
-//   const randomString = Math.random().toString(36).substr(2, 5).toUpperCase(); // Generate a shorter random string
-//   return `ORD-${timestamp}-${randomString}`; // Combine to create unique order ID
-// });
-const orderId = computed(() => {
-    const characters =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    return Array.from({ length: 6 }, () =>
-        characters.charAt(Math.floor(Math.random() * characters.length))
-    ).join("");
+const currentTimer = computed(() => {
+    if (!selectedSession.value) return null;
+    return sessionTimers[selectedSession.value.session.id] ?? null;
 });
 
-const submitOrder = async () => {
-    // if (window.confirm("Are you sure you want to confirm the order?")) {
-    console.log(products.value);
-    if (balance.value < 0) {
-        isAlertModalOpen.value = true;
-        message.value = "Cash is not enough";
-        return;
-    }
+const sessionTotalDisplay = computed(() => {
+    if (!selectedSession.value) return "0.00";
+    const pkg = Number(selectedSession.value.session.package_total ?? 0);
+    const prod = Number(selectedSession.value.session.products_total ?? 0);
+    const extra = Number(currentTimer.value?.extra_amount ?? 0);
+    return (pkg + prod + extra).toFixed(2);
+});
+
+// ── Load sessions ──
+const loadActiveSessions = async () => {
+    loadingActiveSessions.value = true;
     try {
-        const response = await axios.post("/pos/submit", {
-            customer: customer.value,
-            products: products.value,
-            employee_id: employee_id.value,
-            paymentMethod: selectedPaymentMethod.value,
-            userId: props.loggedInUser.id,
-            orderid: orderid.value,
-            cash: cash.value,
-            custom_discount: custom_discount.value,
-        });
-        isSuccessModalOpen.value = true;
-        console.log(response.data); // Handle success
-    } catch (error) {
-        if (error.response.status === 423) {
-            isAlertModalOpen.value = true;
-            message.value = error.response.data.message;
+        const res = await axios.get(route("play-area.session.active"));
+        activeSessions.value = res.data.sessions || [];
+        // If selected session was removed (closed), deselect
+        if (selectedSessionId.value) {
+            const still = activeSessions.value.find(s => s.session.id === selectedSessionId.value);
+            if (!still) selectedSessionId.value = null;
         }
-        console.error(
-            "Error submitting customer details:",
-            error.response?.data || error.message
-        );
-        // alert("Failed to submit customer details. Please try again.");
-    }
-};
-
-// ── Unified Billing Functions ──
-const populateCheckoutFromSession = (session) => {
-    fetchedOrder.value = session;
-
-    orderTotals.package_total = Number(session.package_total || 0);
-    orderTotals.products_total = Number(session.products_total || 0);
-    orderTotals.extra_amount = Number(session.extra_amount || 0);
-    orderTotals.extra_minutes = Number(session.extra_minutes || 0);
-    orderTotals.elapsed_minutes = Number(session.elapsed_minutes || 0);
-    orderTotals.final_total = Number(session.final_total || 0);
-
-    elapsedDisplay.value = Number(session.elapsed_minutes || 0);
-    checkoutCash.value = Number(session.final_total || 0);
-
-    if (session.package_id && session.status !== "closed") {
-        startLiveTimer();
-    }
-};
-
-const createOrder = async () => {
-    if (products.value.length === 0 && !selectedPackageId.value) {
-        isAlertModalOpen.value = true;
-        message.value = "Please add at least one product or select a service package.";
-        return;
-    }
-
-    loadingCreateOrder.value = true;
-    try {
-        const response = await axios.post(route("play-area.session.create"), {
-            package_id: selectedPackageId.value || null,
-            employee_id: employee_id.value || null,
-            user_id: props.loggedInUser.id,
-            customer: {
-                name: customer.value.name,
-                contactNumber: customer.value.contactNumber,
-                email: customer.value.email,
-                age: null,
-            },
-            products: products.value.map((item) => ({
-                id: item.id,
-                quantity: item.quantity,
-            })),
-        });
-
-        createdSession.value = response.data.session;
-        form.barcode = createdSession.value.barcode;
-        populateCheckoutFromSession(createdSession.value);
-        return createdSession.value;
+        updateAllTimers();
     } catch (err) {
         isAlertModalOpen.value = true;
-        message.value = err.response?.data?.message || "Failed to create order.";
-        return null;
+        message.value = err.response?.data?.message || "Failed to load sessions.";
     } finally {
-        loadingCreateOrder.value = false;
+        loadingActiveSessions.value = false;
     }
 };
 
-const confirmOrderDirect = async () => {
-    const session = await createOrder();
-    if (!session) {
-        return;
+const selectSession = (sess) => {
+    selectedSessionId.value = sess.session.id;
+    isLiveBillMode.value = false;
+    fetchedOrder.value = null;
+    showConfirmPanel.value = false;
+};
+
+// ── Open Bill & Print ──
+const loadingOpenBill = ref(false);
+
+const openBillAndPrint = async () => {
+    if (!selectedSession.value) return;
+    loadingOpenBill.value = true;
+    try {
+        const res = await axios.post(route("play-area.session.open", selectedSession.value.session.id));
+        // Update session in list
+        const idx = activeSessions.value.findIndex(s => s.session.id === selectedSessionId.value);
+        if (idx !== -1) {
+            activeSessions.value[idx].session = res.data.session;
+        }
+        // Open barcode print in new tab
+        window.open(route("play-area.barcode.print", res.data.session.id), "_blank");
+        updateAllTimers();
+    } catch (err) {
+        isAlertModalOpen.value = true;
+        message.value = err.response?.data?.message || "Failed to open session.";
+    } finally {
+        loadingOpenBill.value = false;
     }
+};
 
-    // Confirm immediately and print final bill without barcode print step
-    checkoutCash.value = Number(session.final_total || orderTotals.final_total || 0);
+const reprintBarcode = () => {
+    if (!selectedSession.value) return;
+    window.open(route("play-area.barcode.print", selectedSession.value.session.id), "_blank");
+};
 
+// ── Confirm Final Bill (session) ──
+const showConfirmPanel = ref(false);
+const checkoutPaymentMethod = ref("cash");
+const checkoutCash = ref(0);
+const loadingClose = ref(false);
+
+const confirmSessionFinalBill = async () => {
+    if (!selectedSession.value) return;
     loadingClose.value = true;
     try {
-        const response = await axios.post(route("play-area.session.close"), {
-            barcode: session.barcode,
+        const res = await axios.post(route("play-area.session.close"), {
+            barcode: selectedSession.value.session.barcode,
             payment_method: checkoutPaymentMethod.value,
             cash: checkoutCash.value,
-            employee_id: employee_id.value || null,
+            employee_id: selectedSession.value.session.employee_id || null,
             user_id: props.loggedInUser.id,
         });
-
-        clearInterval(orderTimer);
-        fetchedOrder.value = response.data.session;
-        Object.assign(orderTotals, response.data.totals || {});
-        printOrderReceipt(response.data.session, response.data.totals, response.data.balance);
-        setTimeout(() => { refreshData(); }, 1500);
+        clearInterval(globalTimer);
+        printFinalReceipt(res.data.session, res.data.totals, res.data.balance);
+        await loadActiveSessions();
+        selectedSessionId.value = null;
+        showConfirmPanel.value = false;
+        globalTimer = setInterval(updateAllTimers, 1000);
     } catch (err) {
         isAlertModalOpen.value = true;
         message.value = err.response?.data?.message || "Failed to confirm order.";
@@ -749,635 +654,478 @@ const confirmOrderDirect = async () => {
     }
 };
 
-const printBarcodeForOrder = async () => {
-    // Reuse active created session if available, otherwise create one.
-    let session = createdSession.value;
+// ── Sync products to a session ──
+const syncingProducts = ref(false);
 
-    if (!session || session.status === "closed") {
-        session = await createOrder();
-        if (!session) {
-            return;
-        }
-    }
-
-    const printUrl = route("play-area.barcode.print", session.id);
-    window.open(printUrl, "_blank");
-};
-
-const startLiveTimer = () => {
-    clearInterval(orderTimer);
-    orderTimer = setInterval(() => {
-        if (!fetchedOrder.value || fetchedOrder.value.status === "closed" || !fetchedOrder.value.package_id) {
-            clearInterval(orderTimer);
-            return;
-        }
-        const start = new Date(fetchedOrder.value.start_time).getTime();
-        const now = Date.now();
-        const elapsed = Math.max(0, Math.floor((now - start) / 60000));
-        elapsedDisplay.value = elapsed;
-
-        const extraMinutes = Math.max(0, elapsed - Number(fetchedOrder.value.base_time_minutes || 0));
-        const units = extraMinutes > 0
-            ? Math.ceil(extraMinutes / Math.max(1, Number(fetchedOrder.value.extra_charge_per_minutes || 1)))
-            : 0;
-        orderTotals.extra_minutes = extraMinutes;
-        orderTotals.extra_amount = units * Number(fetchedOrder.value.extra_charge || 0);
-        orderTotals.final_total = Number(fetchedOrder.value.package_total || 0)
-            + Number(orderTotals.products_total || 0)
-            + Number(orderTotals.extra_amount || 0);
-    }, 1000);
-};
-
-const fetchOrder = async (barcodeValue = null) => {
-    const barcodeToFetch = (barcodeValue || form.barcode || "").trim();
-
-    if (!barcodeToFetch) {
-        isAlertModalOpen.value = true;
-        message.value = "Please enter or scan a barcode.";
-        return;
-    }
-
-    loadingFetch.value = true;
-    clearInterval(orderTimer);
-
+const syncSessionProducts = async (products) => {
+    if (!selectedSession.value || syncingProducts.value) return;
+    syncingProducts.value = true;
+    const sessId = selectedSession.value.session.id;
+    const barcode = selectedSession.value.session.barcode;
     try {
-        const response = await axios.post(route("play-area.session.fetch"), {
-            barcode: barcodeToFetch,
-        });
-
-        fetchedOrder.value = response.data.session;
-        Object.assign(orderTotals, response.data.totals || {});
-        elapsedDisplay.value = response.data.totals?.elapsed_minutes || 0;
-        checkoutCash.value = Number(response.data.totals?.final_total || 0);
-
-        // Keep scanned barcode in the field for visibility
-        form.barcode = barcodeToFetch;
-
-        if (fetchedOrder.value.package_id) {
-            startLiveTimer();
+        const payload = barcode
+            ? { barcode, products }
+            : { session_id: sessId, products };
+        const res = await axios.post(route("play-area.session.items.sync"), payload);
+        const idx = activeSessions.value.findIndex(s => s.session.id === sessId);
+        if (idx !== -1 && res.data.session) {
+            activeSessions.value[idx].session = res.data.session;
+            if (res.data.totals) activeSessions.value[idx].totals = res.data.totals;
         }
     } catch (err) {
         isAlertModalOpen.value = true;
-        message.value = err.response?.data?.message || "Order not found. Check the barcode.";
+        message.value = err.response?.data?.message || "Failed to update items.";
     } finally {
-        loadingFetch.value = false;
+        syncingProducts.value = false;
     }
 };
 
-const printOrderReceipt = (sessionData, totalsData, balance) => {
-    const productRows = (sessionData.items || [])
-        .map((item) => `
-            <tr>
-                <td>${item.product?.name || "Item"}</td>
-                <td style="text-align:center;">${Number(item.quantity || 0)}</td>
-                <td style="text-align:right;">${Number(item.total_price || 0).toFixed(2)} LKR</td>
-            </tr>
-        `)
-        .join("");
+const removeSessionItem = (item) => {
+    const remaining = sessionItems.value
+        .filter(i => i.id !== item.id)
+        .map(i => ({ id: i.product_id, quantity: i.quantity }));
+    syncSessionProducts(remaining);
+};
 
-    const html = `
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Receipt</title>
-      <style>
-          @media print {
-              body {
-                  margin: 0;
-                  padding: 0 5mm 0 0;
-                  -webkit-print-color-adjust: exact;
-              }
-          }
-          body {
-              background-color: #ffffff;
-              font-size: 12px;
-              font-family: 'Arial', sans-serif;
-              margin: 0;
-              padding: 10px 5mm 10mm 7mm;
-              color: #000;
-          }
-          .header {
-              text-align: center;
-              margin-bottom: 16px;
-          }
-          .header h1 {
-              font-size: 20px;
-              font-weight: bold;
-              margin: 0;
-          }
-          .header p {
-              font-size: 12px;
-              margin: 4px 0;
-          }
-          .section {
-              margin-bottom: 16px;
-              padding-top: 8px;
-              border-top: 1px solid #000;
-          }
-          .info-row {
-              display: flex;
-              justify-content: space-between;
-              font-size: 14px;
-              margin-top: 8px;
-          }
-          .info-row p {
-              margin: 0;
-              font-weight: bold;
-          }
-          .info-row small {
-              font-weight: normal;
-          }
-          table {
-              width: 100%;
-              font-size: 12px;
-              border-collapse: collapse;
-              margin-top: 8px;
-          }
-          table th, table td {
-              padding: 6px 8px;
-          }
-          table th {
-              text-align: left;
-          }
-          table td {
-              text-align: right;
-          }
-          table td:first-child {
-              text-align: left;
-          }
-          .totals {
-              border-top: 1px solid #000;
-              padding-top: 8px;
-              font-size: 12px;
-          }
-          .totals div {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 8px;
-          }
-          .totals .grand-total {
-              font-size: 14px;
-              font-weight: bold;
-          }
-          .footer {
-              text-align: center;
-              font-size: 10px;
-              margin-top: 16px;
-          }
-          .footer p {
-              margin: 6px 0;
-          }
-      </style>
-  </head>
-  <body>
-      <div class="receipt-container">
-          <div class="header">
-              <img src="/images/billlogo.png" style="width: 230px; height: 100px;" />
-              <h1>Order Receipt</h1>
-              <p>JAAN Network POS</p>
-          </div>
+const incrementSessionItem = (item) => {
+    const updated = sessionItems.value.map(i => ({
+        id: i.product_id,
+        quantity: i.id === item.id ? i.quantity + 1 : i.quantity,
+    }));
+    syncSessionProducts(updated);
+};
 
-          <div class="section">
-              <div class="info-row">
-                  <div>
-                      <p>Date:</p>
-                      <small>${new Date().toLocaleDateString()}</small>
-                  </div>
-                  <div>
-                      <p>Order No:</p>
-                      <small>${sessionData.barcode}</small>
-                  </div>
-              </div>
-              <div class="info-row">
-                  <div>
-                      <p>Customer:</p>
-                      <small>${sessionData.customer_name || "Walk-in"}</small>
-                  </div>
-                  <div>
-                      <p>Cashier:</p>
-                      <small>${props.loggedInUser?.name || "-"}</small>
-                  </div>
-              </div>
-              ${sessionData.package ? `
-              <div class="info-row">
-                  <div>
-                      <p>Service:</p>
-                      <small>${sessionData.package.name}</small>
-                  </div>
-                  <div>
-                      <p>Payment:</p>
-                      <small>${String(checkoutPaymentMethod.value || "cash").toUpperCase()}</small>
-                  </div>
-              </div>` : ""}
-          </div>
+const decrementSessionItem = (item) => {
+    if (item.quantity <= 1) {
+        removeSessionItem(item);
+        return;
+    }
+    const updated = sessionItems.value.map(i => ({
+        id: i.product_id,
+        quantity: i.id === item.id ? i.quantity - 1 : i.quantity,
+    }));
+    syncSessionProducts(updated);
+};
 
-          <div class="section">
-              <table>
-                  <colgroup>
-                      <col style="width:60%;">
-                      <col style="width:15%;">
-                      <col style="width:25%;">
-                  </colgroup>
-                  <thead>
-                      <tr>
-                          <th>Items</th>
-                          <th style="text-align:center;">Qty</th>
-                          <th style="text-align:right;">Price</th>
-                      </tr>
-                  </thead>
-                  <tbody style="font-size:11px;">
-                      ${productRows || '<tr><td colspan="3" style="text-align:center;">No products</td></tr>'}
-                  </tbody>
-              </table>
-          </div>
+// ── Add Customer Modal ──
+const showAddCustomerModal = ref(false);
+const loadingCreateSession = ref(false);
+const newSession = reactive({
+    customerName: "",
+    customerContact: "",
+    customerEmail: "",
+    employeeId: "",
+    packageId: "",
+});
 
-          <div class="totals">
-              ${sessionData.package ? `
-              <div>
-                  <span>Package Total</span>
-                  <span>${(Number(totalsData.package_total) || 0).toFixed(2)} LKR</span>
-              </div>` : ""}
-              <div>
-                  <span>Products Total</span>
-                  <span>${(Number(totalsData.products_total) || 0).toFixed(2)} LKR</span>
-              </div>
-              ${sessionData.package ? `
-              <div>
-                  <span>Overtime Charge</span>
-                  <span>${(Number(totalsData.extra_amount) || 0).toFixed(2)} LKR</span>
-              </div>` : ""}
-              <div class="grand-total">
-                  <span>Total</span>
-                  <span>${(Number(totalsData.final_total) || 0).toFixed(2)} LKR</span>
-              </div>
-              <div>
-                  <span>Cash</span>
-                  <span>${(Number(checkoutCash.value) || 0).toFixed(2)} LKR</span>
-              </div>
-              <div style="font-weight: bold;">
-                  <span>Balance</span>
-                  <span>${(Number(balance) || 0).toFixed(2)} LKR</span>
-              </div>
-          </div>
+const newSessionPackagePreview = computed(
+    () => props.packages?.find(p => Number(p.id) === Number(newSession.packageId)) || null
+);
 
-          <div class="footer">
-              <p>THANK YOU COME AGAIN</p>
-              <p style="font-weight: bold;">Powered by JAAN Network Ltd.</p>
-              <p>${new Date().toLocaleTimeString()}</p>
-          </div>
-      </div>
-      <script>
-          window.onload = function () {
-              window.print();
-          };
-      <\/script>
-  </body>
-  </html>
-  `;
+const createNewSession = async () => {
+    loadingCreateSession.value = true;
+    try {
+        const res = await axios.post(route("play-area.session.create"), {
+            open: false, // create as pending
+            package_id: newSession.packageId || null,
+            employee_id: newSession.employeeId || null,
+            user_id: props.loggedInUser.id,
+            customer: {
+                name: newSession.customerName,
+                contactNumber: newSession.customerContact,
+                email: newSession.customerEmail,
+                age: null,
+            },
+            products: [],
+        });
 
-    const w = window.open("", "_blank", "width=800,height=900");
+        Object.assign(newSession, { customerName: "", customerContact: "", customerEmail: "", employeeId: "", packageId: "" });
+        showAddCustomerModal.value = false;
+
+        await loadActiveSessions();
+        if (res.data.session) selectedSessionId.value = res.data.session.id;
+
+        isAlertModalOpen.value = true;
+        message.value = "Customer added. Click 'Open Bill & Print' to start the session.";
+    } catch (err) {
+        isAlertModalOpen.value = true;
+        message.value = err.response?.data?.message || "Failed to create session.";
+    } finally {
+        loadingCreateSession.value = false;
+    }
+};
+
+// ── Package Picker ──
+const showPackagePicker = ref(false);
+const packageSearch = ref("");
+const packageDurationFilter = ref("all");
+const packagePriceFilter = ref("all");
+
+const filteredPackages = computed(() => {
+    const search = packageSearch.value.trim().toLowerCase();
+    return (props.packages || []).filter(pkg => {
+        const duration = Number(pkg.base_time_minutes || 0);
+        const price = Number(pkg.base_price || 0);
+        const matchSearch = !search || pkg.name?.toLowerCase().includes(search);
+        const matchDur = packageDurationFilter.value === "all"
+            || (packageDurationFilter.value === "short" && duration <= 60)
+            || (packageDurationFilter.value === "medium" && duration > 60 && duration <= 120)
+            || (packageDurationFilter.value === "long" && duration > 120);
+        const matchPrice = packagePriceFilter.value === "all"
+            || (packagePriceFilter.value === "budget" && price <= 1000)
+            || (packagePriceFilter.value === "standard" && price > 1000 && price <= 3000)
+            || (packagePriceFilter.value === "premium" && price > 3000);
+        return matchSearch && matchDur && matchPrice;
+    });
+});
+
+// ── Live Bill ──
+const isLiveBillMode = ref(false);
+const liveBillProducts = ref([]);
+const showLiveBillConfirm = ref(false);
+const liveBillPaymentMethod = ref("cash");
+const liveBillCash = ref(0);
+const loadingLiveBill = ref(false);
+
+const liveBillTotal = computed(() =>
+    liveBillProducts.value.reduce((t, i) => t + i.selling_price * i.quantity, 0).toFixed(2)
+);
+
+const switchToLiveBill = () => {
+    isLiveBillMode.value = true;
+    selectedSessionId.value = null;
+    fetchedOrder.value = null;
+};
+
+const removeLiveBillItem = (item) => {
+    liveBillProducts.value = liveBillProducts.value.filter(i => i.id !== item.id);
+};
+
+const confirmLiveBill = async () => {
+    if (liveBillProducts.value.length === 0) return;
+    loadingLiveBill.value = true;
+    try {
+        // Create session with open:true (no package), add products, then close
+        const createRes = await axios.post(route("play-area.session.create"), {
+            open: true,
+            package_id: null,
+            employee_id: null,
+            user_id: props.loggedInUser.id,
+            customer: { name: "", contactNumber: "", email: "", age: null },
+            products: liveBillProducts.value.map(i => ({ id: i.id, quantity: i.quantity })),
+        });
+        const session = createRes.data.session;
+
+        const closeRes = await axios.post(route("play-area.session.close"), {
+            barcode: session.barcode,
+            payment_method: liveBillPaymentMethod.value,
+            cash: liveBillCash.value,
+            user_id: props.loggedInUser.id,
+        });
+        printFinalReceipt(closeRes.data.session, closeRes.data.totals, closeRes.data.balance);
+        liveBillProducts.value = [];
+        showLiveBillConfirm.value = false;
+        isLiveBillMode.value = false;
+        await loadActiveSessions();
+    } catch (err) {
+        isAlertModalOpen.value = true;
+        message.value = err.response?.data?.message || "Failed to process live bill.";
+    } finally {
+        loadingLiveBill.value = false;
+    }
+};
+
+// ── Fetched order checkout (standalone barcode scan) ──
+const fetchedOrder = ref(null);
+const orderTotals = reactive({ package_total: 0, extra_amount: 0, products_total: 0, final_total: 0, extra_minutes: 0, elapsed_minutes: 0 });
+const elapsedDisplay = ref(0);
+let fetchedOrderTimer = null;
+
+const startFetchedOrderTimer = () => {
+    clearInterval(fetchedOrderTimer);
+    fetchedOrderTimer = setInterval(() => {
+        if (!fetchedOrder.value || fetchedOrder.value.status === "closed" || !fetchedOrder.value.package_id) {
+            clearInterval(fetchedOrderTimer);
+            return;
+        }
+        const elapsed = Math.max(0, Math.floor((Date.now() - new Date(fetchedOrder.value.start_time).getTime()) / 60000));
+        elapsedDisplay.value = elapsed;
+        const extra = Math.max(0, elapsed - Number(fetchedOrder.value.base_time_minutes || 0));
+        const perUnit = Math.max(1, Number(fetchedOrder.value.extra_charge_per_minutes || 1));
+        const units = extra > 0 ? Math.ceil(extra / perUnit) : 0;
+        orderTotals.extra_minutes = extra;
+        orderTotals.extra_amount = units * Number(fetchedOrder.value.extra_charge || 0);
+        orderTotals.final_total = Number(fetchedOrder.value.package_total || 0) + Number(orderTotals.products_total || 0) + Number(orderTotals.extra_amount || 0);
+    }, 1000);
+};
+
+const fetchOrderByBarcode = async (barcode) => {
+    try {
+        const res = await axios.post(route("play-area.session.fetch"), { barcode });
+        fetchedOrder.value = res.data.session;
+        Object.assign(orderTotals, res.data.totals || {});
+        elapsedDisplay.value = res.data.totals?.elapsed_minutes || 0;
+        checkoutCash.value = Number(res.data.totals?.final_total || 0);
+        if (fetchedOrder.value.package_id) startFetchedOrderTimer();
+    } catch (err) {
+        isAlertModalOpen.value = true;
+        message.value = err.response?.data?.message || "Order not found.";
+    }
+};
+
+const confirmFetchedOrder = async () => {
+    if (!fetchedOrder.value) return;
+    loadingClose.value = true;
+    try {
+        const res = await axios.post(route("play-area.session.close"), {
+            barcode: fetchedOrder.value.barcode,
+            payment_method: checkoutPaymentMethod.value,
+            cash: checkoutCash.value,
+            user_id: props.loggedInUser.id,
+        });
+        clearInterval(fetchedOrderTimer);
+        printFinalReceipt(res.data.session, res.data.totals, res.data.balance);
+        fetchedOrder.value = null;
+        await loadActiveSessions();
+    } catch (err) {
+        isAlertModalOpen.value = true;
+        message.value = err.response?.data?.message || "Failed to confirm order.";
+    } finally {
+        loadingClose.value = false;
+    }
+};
+
+// ── Barcode scanner ──
+const form = useForm({ barcode: "" });
+
+const submitBarcode = async () => {
+    const scanned = (form.barcode || "").trim();
+    if (!scanned) return;
+
+    // PA... barcode → look for order
+    if (/^PA[A-Z0-9]+$/i.test(scanned)) {
+        // Check if it belongs to an active session in the list
+        const found = activeSessions.value.find(s => s.session.barcode === scanned);
+        if (found) {
+            selectSession(found);
+        } else {
+            await fetchOrderByBarcode(scanned);
+        }
+        form.barcode = "";
+        return;
+    }
+
+    // Product barcode
+    const targetLiveBill = isLiveBillMode.value;
+    const targetSession = selectedSession.value;
+
+    if (!targetLiveBill && !targetSession) {
+        isAlertModalOpen.value = true;
+        message.value = "Please select a customer or enable Live Bill mode first.";
+        return;
+    }
+
+    try {
+        const res = await axios.post(route("pos.getProduct"), { barcode: scanned });
+        const { product: fetchedProduct, error: fetchedError } = res.data;
+
+        if (!fetchedProduct) {
+            isAlertModalOpen.value = true;
+            message.value = fetchedError || "Product not found.";
+            return;
+        }
+        if (fetchedProduct.stock_quantity < 1) {
+            isAlertModalOpen.value = true;
+            message.value = "Product is out of stock.";
+            return;
+        }
+
+        if (targetLiveBill) {
+            const existing = liveBillProducts.value.find(i => i.id === fetchedProduct.id);
+            if (existing) { existing.quantity++; } else {
+                liveBillProducts.value.push({ ...fetchedProduct, quantity: 1 });
+            }
+        } else {
+            // Add to session
+            const currentItems = sessionItems.value.map(i => ({ id: i.product_id, quantity: i.quantity }));
+            const ex = currentItems.find(i => i.id === fetchedProduct.id);
+            if (ex) { ex.quantity++; } else { currentItems.push({ id: fetchedProduct.id, quantity: 1 }); }
+            await syncSessionProducts(currentItems);
+        }
+        form.barcode = "";
+    } catch (err) {
+        isAlertModalOpen.value = true;
+        message.value = err.response?.data?.message || "Error scanning product.";
+    }
+};
+
+const handleSelectedProducts = (selectedProducts) => {
+    if (isLiveBillMode.value) {
+        selectedProducts.forEach(p => {
+            const ex = liveBillProducts.value.find(i => i.id === p.id);
+            if (ex) { ex.quantity++; } else { liveBillProducts.value.push({ ...p, quantity: 1 }); }
+        });
+        return;
+    }
+    if (!selectedSession.value) {
+        isAlertModalOpen.value = true;
+        message.value = "Please select a customer first.";
+        return;
+    }
+    const currentItems = sessionItems.value.map(i => ({ id: i.product_id, quantity: i.quantity }));
+    selectedProducts.forEach(p => {
+        const ex = currentItems.find(i => i.id === p.id);
+        if (ex) { ex.quantity++; } else { currentItems.push({ id: p.id, quantity: 1 }); }
+    });
+    syncSessionProducts(currentItems);
+};
+
+// ── Receipt printer ──
+const printFinalReceipt = (sessionData, totalsData, balance) => {
+    const payMethod = String(checkoutPaymentMethod.value || liveBillPaymentMethod.value || "cash");
+    const cashPaid = Number(totalsData.cash ?? checkoutCash.value ?? liveBillCash.value ?? 0);
+    const productRows = (sessionData.items || []).map(item =>
+        `<tr>
+            <td>${item.product?.name || "Item"}</td>
+            <td style="text-align:center;">${item.quantity}</td>
+            <td style="text-align:right;">LKR ${Number(item.total_price || 0).toFixed(2)}</td>
+        </tr>`
+    ).join("");
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Final Bill ${sessionData.barcode || ''}</title>
+<script src="/js/JsBarcode.all.min.js"><\/script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+@media print { html,body { width:100mm; } .receipt { width:100mm; } }
+body { background:#fff; font-family:Arial,sans-serif; font-size:12px; color:#000; }
+.receipt { width:100mm; margin:0 auto; padding:6mm 5mm 10mm 5mm; }
+.header { text-align:center; border-bottom:1px dashed #000; padding-bottom:8px; margin-bottom:10px; }
+.header img { width:130px; height:auto; display:block; margin:0 auto 5px auto; }
+.header .shop { font-size:15px; font-weight:bold; letter-spacing:2px; margin-bottom:2px; }
+.header .tel { font-size:11px; }
+.title-sec { text-align:center; border-bottom:1px dashed #000; padding-bottom:8px; margin-bottom:10px; }
+.title-sec .lbl { font-size:15px; font-weight:bold; letter-spacing:1px; margin-bottom:4px; }
+.title-sec .bill-no { font-size:13px; font-weight:bold; }
+.title-sec .bill-dt { font-size:10px; color:#555; margin-top:3px; }
+.info-sec { border-bottom:1px dashed #000; padding-bottom:8px; margin-bottom:10px; }
+.irow { display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px; }
+.irow .k { font-weight:bold; }
+.items-sec { margin-bottom:10px; }
+table { width:100%; border-collapse:collapse; font-size:11px; }
+th,td { padding:3px 4px; }
+th { text-align:left; border-bottom:1px solid #000; }
+td { vertical-align:top; }
+td:nth-child(2) { text-align:center; }
+td:nth-child(3) { text-align:right; white-space:nowrap; }
+.tot-sec { border-top:1px dashed #000; padding-top:7px; margin-bottom:10px; }
+.tot-row { display:flex; justify-content:space-between; margin-bottom:4px; font-size:12px; }
+.grand-row { display:flex; justify-content:space-between; font-size:14px; font-weight:bold; border-top:1px solid #000; padding-top:5px; margin-top:5px; margin-bottom:7px; }
+.pay-box { border:1px solid #ccc; border-radius:3px; padding:5px 7px; font-size:11px; margin-bottom:10px; }
+.pay-box span { font-weight:bold; }
+.barcode-sec { text-align:center; border-top:1px dashed #000; border-bottom:1px dashed #000; padding:8px 0 6px 0; margin-bottom:10px; }
+.barcode-sec svg { width:100%; max-width:90mm; }
+.barcode-sec .bc-text { font-size:12px; font-weight:bold; letter-spacing:2px; margin-top:4px; }
+.footer { text-align:center; font-size:10px; color:#444; }
+.footer p { margin-bottom:3px; }
+</style>
+</head>
+<body>
+<div class="receipt">
+    <div class="header">
+        <img src="/images/logo.png" alt="Logo" onerror="this.style.display='none'" />
+        <div class="shop">PLAY AREA</div>
+        <div class="tel">Tel : 077 306 3000</div>
+    </div>
+
+    <div class="title-sec">
+        <div class="lbl">FINAL BILL</div>
+        <div class="bill-no">${sessionData.barcode || ''}</div>
+        <div class="bill-dt">${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
+    </div>
+
+    <div class="info-sec">
+        <div class="irow"><span class="k">Customer</span><span>${sessionData.customer_name || 'Walk-in'}</span></div>
+        ${sessionData.package ? `<div class="irow"><span class="k">Service</span><span>${sessionData.package.name}</span></div>` : ''}
+        ${sessionData.package && totalsData.elapsed_minutes > 0 ? `<div class="irow"><span class="k">Time Used</span><span>${totalsData.elapsed_minutes} mins</span></div>` : ''}
+        ${totalsData.extra_minutes > 0 ? `<div class="irow"><span class="k">Overtime</span><span>${totalsData.extra_minutes} mins</span></div>` : ''}
+    </div>
+
+    ${productRows ? `
+    <div class="items-sec">
+        <table>
+            <thead><tr><th>Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Price</th></tr></thead>
+            <tbody>${productRows}</tbody>
+        </table>
+    </div>` : ''}
+
+    <div class="tot-sec">
+        ${sessionData.package_id ? `<div class="tot-row"><span>Package</span><span>LKR ${(Number(totalsData.package_total)||0).toFixed(2)}</span></div>` : ''}
+        ${Number(totalsData.products_total) > 0 ? `<div class="tot-row"><span>Products</span><span>LKR ${(Number(totalsData.products_total)||0).toFixed(2)}</span></div>` : ''}
+        ${totalsData.extra_amount > 0 ? `<div class="tot-row" style="color:#c00;"><span>Extra Time</span><span>LKR ${(Number(totalsData.extra_amount)||0).toFixed(2)}</span></div>` : ''}
+        <div class="grand-row"><span>GRAND TOTAL</span><span>LKR ${(Number(totalsData.final_total)||0).toFixed(2)}</span></div>
+        <div class="tot-row"><span>Cash</span><span>LKR ${cashPaid.toFixed(2)}</span></div>
+        <div class="tot-row" style="font-weight:bold;"><span>Balance</span><span>LKR ${(Number(balance)||0).toFixed(2)}</span></div>
+    </div>
+
+    <div class="pay-box">Payment Method: &nbsp;<span>${payMethod.charAt(0).toUpperCase() + payMethod.slice(1)}</span></div>
+
+    <div class="barcode-sec">
+        <svg id="finalBarcode"></svg>
+        <div class="bc-text">${sessionData.barcode || ''}</div>
+    </div>
+
+    <div class="footer">
+        <p>We hope you enjoyed the play area!</p>
+        <p>Come again for more fun times.</p>
+        <p style="font-weight:bold; margin-top:3px;">Powered by JAAN Network Ltd.</p>
+    </div>
+</div>
+<script>
+if (typeof JsBarcode !== 'undefined' && '${sessionData.barcode || ''}') {
+    JsBarcode('#finalBarcode', '${sessionData.barcode || ''}', {
+        format:'CODE128', width:3, height:80, displayValue:false, margin:5
+    });
+}
+window.onload = function() { window.print(); };
+<\/script>
+</body>
+</html>`;
+    const w = window.open("", "_blank", "width=700,height=900");
     w.document.write(html);
     w.document.close();
 };
 
-const confirmBill = async () => {
-    if (!fetchedOrder.value) {
-        isAlertModalOpen.value = true;
-        message.value = "Please fetch an order first.";
-        return;
-    }
-    loadingClose.value = true;
-    try {
-        const response = await axios.post(route("play-area.session.close"), {
-            barcode: fetchedOrder.value.barcode,
-            payment_method: checkoutPaymentMethod.value,
-            cash: checkoutCash.value,
-            employee_id: employee_id.value || null,
-            user_id: props.loggedInUser.id,
-        });
-        clearInterval(orderTimer);
-        fetchedOrder.value = response.data.session;
-        Object.assign(orderTotals, response.data.totals || {});
-        printOrderReceipt(response.data.session, response.data.totals, response.data.balance);
-        setTimeout(() => { refreshData(); }, 2000);
-    } catch (err) {
-        isAlertModalOpen.value = true;
-        message.value = err.response?.data?.message || "Failed to confirm order.";
-    } finally {
-        loadingClose.value = false;
-    }
-};
+// ── Keyboard scanner ──
+let kbBarcode = "";
+let kbTimeout;
 
-const subtotal = computed(() => {
-    return products.value
-        .reduce(
-            (total, item) => total + parseFloat(item.selling_price) * item.quantity,
-            0
-        )
-        .toFixed(2); // Ensures two decimal places
-});
-
-const totalDiscount = computed(() => {
-    const productDiscount = products.value.reduce((total, item) => {
-        // Check if item has a discount
-        if (item.discount && item.discount > 0 && item.apply_discount == true) {
-            const discountAmount =
-                (parseFloat(item.selling_price) - parseFloat(item.discounted_price)) *
-                item.quantity;
-            return total + discountAmount;
-        }
-        return total; // If no discount, return total as-is
-    }, 0); // Ensures two decimal places
-
-    const couponDiscount = appliedCoupon.value
-        ? Number(appliedCoupon.value.discount)
-        : 0;
-
-    return (productDiscount + couponDiscount).toFixed(2);
-});
-
-const validateCustomDiscount = () => {
-    if (!custom_discount.value || isNaN(custom_discount.value)) {
-        custom_discount.value = 0; // Set default to 0 if the field is empty or invalid
-    }
-};
-
-const total = computed(() => {
-    const subtotalValue = parseFloat(subtotal.value) || 0;
-    const discountValue = parseFloat(totalDiscount.value) || 0;
-    const customDiscount = parseFloat(custom_discount.value) || 0;
-
-    let customValue = 0;
-
-    if (custom_discount_type.value === 'percent') {
-        customValue = (subtotalValue * customDiscount) / 100;
-    } else if (custom_discount_type.value === 'fixed') {
-        customValue = customDiscount;
-    }
-
-    return (subtotalValue - discountValue - customValue).toFixed(2);
-});
-
-const balance = computed(() => {
-    if (cash.value == null || cash.value === 0) {
-        return 0; // If cash.value is null or 0, return 0
-    }
-    return (parseFloat(cash.value) - parseFloat(total.value)).toFixed(2);
-});
-
-// ── Package & Unified Billing Computed ──
-const selectedPackagePreview = computed(() =>
-    props.packages?.find((p) => Number(p.id) === Number(selectedPackageId.value)) || null
-);
-
-const filteredPackages = computed(() => {
-    const search = packageSearch.value.trim().toLowerCase();
-
-    return (props.packages || []).filter((pkg) => {
-        const duration = Number(pkg.base_time_minutes || 0);
-        const price = Number(pkg.base_price || 0);
-
-        const matchesSearch = !search
-            || String(pkg.name || "").toLowerCase().includes(search)
-            || String(pkg.base_time_minutes || "").includes(search)
-            || String(pkg.base_price || "").includes(search);
-
-        const matchesDuration = packageDurationFilter.value === "all"
-            || (packageDurationFilter.value === "short" && duration <= 60)
-            || (packageDurationFilter.value === "medium" && duration > 60 && duration <= 120)
-            || (packageDurationFilter.value === "long" && duration > 120);
-
-        const matchesPrice = packagePriceFilter.value === "all"
-            || (packagePriceFilter.value === "budget" && price <= 1000)
-            || (packagePriceFilter.value === "standard" && price > 1000 && price <= 3000)
-            || (packagePriceFilter.value === "premium" && price > 3000);
-
-        return matchesSearch && matchesDuration && matchesPrice;
-    });
-});
-
-const previewPackageTotal = computed(() => {
-    if (!selectedPackagePreview.value) return 0;
-    const base = Number(selectedPackagePreview.value.base_price || 0);
-    return base;
-});
-
-const estimatedTotal = computed(() => {
-    return (parseFloat(subtotal.value) + previewPackageTotal.value - parseFloat(totalDiscount.value)).toFixed(2);
-});
-
-// Check for product or handle errors
-const form = useForm({
-    employee_id: "",
-    barcode: "", // Form field for barcode
-});
-
-const couponForm = useForm({
-    code: "",
-});
-
-// Temporary barcode storage during scanning
-let barcode = "";
-let timeout; // Timeout to detect the end of the scan
-
-const submitCoupon = async () => {
-    try {
-        const response = await axios.post(route("pos.getCoupon"), {
-            code: couponForm.code, // Send the coupon field
-        });
-
-        const { coupon: fetchedCoupon, error: fetchedError } = response.data;
-
-        if (fetchedCoupon) {
-            appliedCoupon.value = fetchedCoupon;
-            products.value.forEach((product) => {
-                product.apply_discount = false;
-            });
-        } else {
-            isAlertModalOpen.value = true;
-            message.value = fetchedError;
-            error.value = fetchedError;
-        }
-    } catch (err) {
-        // console.error(error);
-        if (err.response.status === 422) {
-            isAlertModalOpen.value = true;
-            message.value = err.response.data.message;
-        }
-    }
-};
-
-// Automatically submit the barcode to the backend
-const submitBarcode = async () => {
-    const scanned = (form.barcode || "").trim();
-
-    // Order barcode scan should fetch full order for checkout
-    if (/^PA[A-Z0-9]+$/i.test(scanned)) {
-        await fetchOrder(scanned);
-        return;
-    }
-
-    try {
-        // Send POST request to the backend
-        const response = await axios.post(route("pos.getProduct"), {
-            barcode: scanned, // Send the barcode field
-        });
-
-        // Extract the response data
-        const { product: fetchedProduct, error: fetchedError } = response.data;
-
-        if (fetchedProduct) {
-            if (fetchedProduct.stock_quantity < 1) {
-                isAlertModalOpen.value = true;
-                message.value = "Product is out of stock";
-                return;
-            }
-            // Check if the product already exists in the products array
-            const existingProduct = products.value.find(
-                (item) => item.id === fetchedProduct.id
-            );
-
-            if (existingProduct) {
-                // If it exists, increment the quantity
-                existingProduct.quantity += 1;
-            } else {
-                // If it doesn't exist, add it to the products array with quantity 1
-                products.value.push({
-                    ...fetchedProduct,
-                    quantity: 1,
-                    apply_discount: false, // Add the new attribute
-                });
-            }
-
-            product.value = fetchedProduct; // Update product state for individual display
-            error.value = null; // Clear any previous errors
-            console.log(
-                "Product fetched successfully and added to cart:",
-                fetchedProduct
-            );
-
-            form.barcode = "";
-        } else {
-            isAlertModalOpen.value = true;
-            message.value = fetchedError;
-            error.value = fetchedError; // Set the error message
-            console.error("Error:", fetchedError);
-        }
-    } catch (err) {
-        if (err.response.status === 422) {
-            isAlertModalOpen.value = true;
-            message.value = err.response.data.message;
-        }
-
-        console.error("An error occurred:", err.response?.data || err.message);
-        error.value = "An unexpected error occurred. Please try again.";
-    }
-};
-
-// Handle input from the barcode scanner
 const handleScannerInput = (event) => {
-    // Only capture scanner input when not focused on an input field (except the product barcode field)
     const tag = document.activeElement?.tagName?.toLowerCase();
     if (tag === "input" || tag === "textarea" || tag === "select") return;
-
-    clearTimeout(timeout);
+    clearTimeout(kbTimeout);
     if (event.key === "Enter") {
-        // Barcode scanning completed
-        form.barcode = barcode; // Set the scanned barcode into the form
-        submitBarcode(); // Automatically submit the barcode
-        barcode = ""; // Reset the barcode for the next scan
+        form.barcode = kbBarcode;
+        submitBarcode();
+        kbBarcode = "";
     } else {
-        // Append the pressed key to the barcode
-        barcode += event.key;
+        kbBarcode += event.key;
     }
-
-    // Timeout to reset the barcode if scanning is interrupted
-    timeout = setTimeout(() => {
-        barcode = "";
-    }, 100); // Adjust timeout based on scanner speed
+    kbTimeout = setTimeout(() => { kbBarcode = ""; }, 100);
 };
 
-// Attach the keypress event listener when the component is mounted
 onMounted(() => {
     document.addEventListener("keypress", handleScannerInput);
-    console.log(props.products);
+    loadActiveSessions();
+    globalTimer = setInterval(updateAllTimers, 1000);
+});
 
 onBeforeUnmount(() => {
     document.removeEventListener("keypress", handleScannerInput);
-    clearInterval(orderTimer);
+    clearInterval(globalTimer);
+    clearInterval(fetchedOrderTimer);
 });
-});
-
-const applyDiscount = (id) => {
-    products.value.forEach((product) => {
-        if (product.id === id) {
-            product.apply_discount = true;
-        }
-    });
-};
-
-const removeDiscount = (id) => {
-    products.value.forEach((product) => {
-        if (product.id === id) {
-            product.apply_discount = false;
-        }
-    });
-};
-
-const handleSelectedProducts = (selectedProducts) => {
-    selectedProducts.forEach((fetchedProduct) => {
-        const existingProduct = products.value.find(
-            (item) => item.id === fetchedProduct.id
-        );
-
-        if (existingProduct) {
-            // If the product exists, increment its quantity
-            existingProduct.quantity += 1;
-        } else {
-            // If the product doesn't exist, add it with a default quantity
-            products.value.push({
-                ...fetchedProduct,
-                quantity: 1,
-                apply_discount: false, // Default additional attribute
-            });
-        }
-    });
-};
-
-// const searchTerm = ref(form.barcode);
-
-// // Computed property for filtered product results
-// const searchResults = computed(() => {
-//   if (searchTerm.value === "") {
-//     return [];
-//   }
-
-//   let matches = 0;
-
-//   return props.products.filter((product) => {
-//     if (
-//       product.name.toLowerCase().includes(searchTerm.value.toLowerCase()) &&
-//       matches < 10
-//     ) {
-//       matches++;
-//       return product;
-//     }
-//   });
-// });
-
-// // Watch for changes in the form barcode field and update the search term
-// watch(
-//   () => form.barcode,
-//   (newValue) => {
-//     searchTerm.value = newValue;
-//   }
-// );
-
-// // Method to select a product (or barcode)
-// const selectProduct = (productName) => {
-//   form.barcode = productName; // Set the selected product name to the barcode field
-//   searchTerm.value = ""; // Clear the search term after selection
-// };
 </script>
