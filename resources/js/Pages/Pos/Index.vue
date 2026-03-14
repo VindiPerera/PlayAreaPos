@@ -27,7 +27,7 @@
                     <p class="text-gray-500 text-lg mb-4">Click a square to open billing</p>
 
                     <div class="flex gap-3 mb-4">
-                        <button @click="showAddCustomerModal = true"
+                        <button @click="openAddCustomerModal"
                             class="flex-1 py-4 text-xl font-bold border-2 border-gray-400 text-gray-800 rounded-xl hover:bg-gray-100 transition-all">
                             Add Customer
                         </button>
@@ -391,13 +391,31 @@
 
     <!-- ══ Add Customer Modal ══ -->
     <div v-if="showAddCustomerModal" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-        @click.self="showAddCustomerModal = false">
+        @click.self="closeAddCustomerModal">
         <div class="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden">
             <div class="flex items-center justify-between px-8 py-5 border-b">
                 <h3 class="text-3xl font-bold">Add Customer</h3>
-                <button @click="showAddCustomerModal = false" class="text-4xl text-gray-400 hover:text-black">&times;</button>
+                <button @click="closeAddCustomerModal" class="text-4xl text-gray-400 hover:text-black">&times;</button>
             </div>
             <div class="p-8 space-y-4">
+                <div class="relative">
+                    <input v-model="customerSearchQuery" type="text" placeholder="Search existing customer (name, phone, email)"
+                        @input="handleCustomerSearchInput"
+                        class="w-full px-4 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <div v-if="showCustomerSearchDropdown"
+                        class="absolute z-20 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                        <div v-if="searchingCustomers" class="px-4 py-3 text-sm text-gray-500">Searching...</div>
+                        <button v-for="customer in customerSearchResults" :key="customer.id" type="button"
+                            @click="selectCustomer(customer)"
+                            class="w-full text-left px-4 py-3 hover:bg-blue-50 border-b last:border-b-0 border-gray-100">
+                            <p class="font-semibold text-gray-900">{{ customer.name || 'Unnamed Customer' }}</p>
+                            <p class="text-xs text-gray-500">{{ customer.phone || '-' }} &bull; {{ customer.email || '-' }}</p>
+                        </button>
+                        <div v-if="!searchingCustomers && customerSearchResults.length === 0" class="px-4 py-3 text-sm text-gray-500">
+                            No customers found.
+                        </div>
+                    </div>
+                </div>
                 <input v-model="newSession.customerName" type="text" placeholder="Enter Customer Name"
                     class="w-full px-4 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 <input v-model="newSession.customerContact" type="text" placeholder="Enter Customer Contact Number"
@@ -409,6 +427,19 @@
                     <option value="" disabled>Select an Employee</option>
                     <option v-for="emp in allemployee" :key="emp.id" :value="emp.id">{{ emp.name }}</option>
                 </select>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Package Count (Tickets)</label>
+                        <input v-model.number="newSession.packageQuantity" type="number" min="1"
+                            class="w-full px-4 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div v-if="newSessionPackagePreview" class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+                        <p class="text-xs text-blue-700 font-semibold">Package Total</p>
+                        <p class="text-lg font-bold text-blue-900">
+                            {{ Number(newSession.packageQuantity || 1) }} × {{ packageUnitTotal.toFixed(2) }} = {{ packageGrandTotal.toFixed(2) }} LKR
+                        </p>
+                    </div>
+                </div>
                 <div class="flex gap-3 items-center">
                     <button type="button" @click="showPackagePicker = true"
                         class="flex-1 px-4 py-4 border-2 border-blue-500 text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition-all">
@@ -710,16 +741,93 @@ const decrementSessionItem = (item) => {
 // ── Add Customer Modal ──
 const showAddCustomerModal = ref(false);
 const loadingCreateSession = ref(false);
+const customerSearchQuery = ref("");
+const customerSearchResults = ref([]);
+const searchingCustomers = ref(false);
+const selectedCustomerId = ref(null);
+let customerSearchDebounce = null;
+
 const newSession = reactive({
     customerName: "",
     customerContact: "",
     customerEmail: "",
     employeeId: "",
     packageId: "",
+    packageQuantity: 1,
 });
+
+const showCustomerSearchDropdown = computed(() =>
+    customerSearchQuery.value.trim().length > 0
+);
+
+const resetCustomerLookup = () => {
+    customerSearchQuery.value = "";
+    customerSearchResults.value = [];
+    searchingCustomers.value = false;
+    selectedCustomerId.value = null;
+    if (customerSearchDebounce) {
+        clearTimeout(customerSearchDebounce);
+        customerSearchDebounce = null;
+    }
+};
+
+const openAddCustomerModal = () => {
+    isLiveBillMode.value = false;
+    showAddCustomerModal.value = true;
+};
+
+const closeAddCustomerModal = () => {
+    showAddCustomerModal.value = false;
+    resetCustomerLookup();
+};
+
+const fetchCustomers = async () => {
+    const query = customerSearchQuery.value.trim();
+
+    if (!query) {
+        customerSearchResults.value = [];
+        searchingCustomers.value = false;
+        return;
+    }
+
+    searchingCustomers.value = true;
+    try {
+        const res = await axios.get(route("pos.customers.search"), { params: { q: query } });
+        customerSearchResults.value = res.data.customers || [];
+    } catch (err) {
+        customerSearchResults.value = [];
+    } finally {
+        searchingCustomers.value = false;
+    }
+};
+
+const handleCustomerSearchInput = () => {
+    selectedCustomerId.value = null;
+
+    if (customerSearchDebounce) {
+        clearTimeout(customerSearchDebounce);
+    }
+
+    customerSearchDebounce = setTimeout(fetchCustomers, 250);
+};
+
+const selectCustomer = (customer) => {
+    selectedCustomerId.value = customer.id;
+    newSession.customerName = customer.name || "";
+    newSession.customerContact = customer.phone || "";
+    newSession.customerEmail = customer.email || "";
+    customerSearchQuery.value = customer.name || "";
+    customerSearchResults.value = [];
+};
 
 const newSessionPackagePreview = computed(
     () => props.packages?.find(p => Number(p.id) === Number(newSession.packageId)) || null
+);
+
+const packageUnitTotal = computed(() => getPackageTotal(newSessionPackagePreview.value));
+
+const packageGrandTotal = computed(() =>
+    packageUnitTotal.value * Math.max(1, Number(newSession.packageQuantity || 1))
 );
 
 const getPackageTotal = (pkg) => {
@@ -734,6 +842,7 @@ const createNewSession = async () => {
         const res = await axios.post(route("play-area.session.create"), {
             open: false, // create as pending
             package_id: newSession.packageId || null,
+            package_quantity: Math.max(1, Number(newSession.packageQuantity || 1)),
             employee_id: newSession.employeeId || null,
             user_id: props.loggedInUser.id,
             customer: {
@@ -745,8 +854,9 @@ const createNewSession = async () => {
             products: [],
         });
 
-        Object.assign(newSession, { customerName: "", customerContact: "", customerEmail: "", employeeId: "", packageId: "" });
-        showAddCustomerModal.value = false;
+        Object.assign(newSession, { customerName: "", customerContact: "", customerEmail: "", employeeId: "", packageId: "", packageQuantity: 1 });
+        resetCustomerLookup();
+        closeAddCustomerModal();
 
         await loadActiveSessions();
         if (res.data.session) selectedSessionId.value = res.data.session.id;
@@ -798,9 +908,16 @@ const liveBillTotal = computed(() =>
 );
 
 const switchToLiveBill = () => {
+    // Live bill is a walk-in flow; clear customer/session specific UI state.
+    showAddCustomerModal.value = false;
+    showPackagePicker.value = false;
+    Object.assign(newSession, { customerName: "", customerContact: "", customerEmail: "", employeeId: "", packageId: "", packageQuantity: 1 });
+    resetCustomerLookup();
+
     isLiveBillMode.value = true;
     selectedSessionId.value = null;
     fetchedOrder.value = null;
+    showConfirmPanel.value = false;
 };
 
 const removeLiveBillItem = (item) => {
@@ -974,8 +1091,11 @@ const handleSelectedProducts = (selectedProducts) => {
         return;
     }
     if (!selectedSession.value) {
+        if (isLiveBillMode.value) {
+            return;
+        }
         isAlertModalOpen.value = true;
-        message.value = "Please select a customer first.";
+        message.value = "Please select a customer or use Live Bill.";
         return;
     }
     const currentItems = sessionItems.value.map(i => ({ id: i.product_id, quantity: i.quantity }));

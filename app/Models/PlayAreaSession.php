@@ -14,6 +14,7 @@ class PlayAreaSession extends Model
     protected $fillable = [
         'barcode',
         'package_id',
+        'package_quantity',
         'employee_id',
         'user_id',
         'customer_name',
@@ -51,6 +52,7 @@ class PlayAreaSession extends Model
         'start_time' => 'datetime',
         'expected_end_time' => 'datetime',
         'end_time' => 'datetime',
+        'package_quantity' => 'integer',
     ];
 
     public function package()

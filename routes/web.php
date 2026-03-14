@@ -84,6 +84,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
     Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
+    Route::get('/pos/customers/search', [PosController::class, 'searchCustomers'])->name('pos.customers.search');
     Route::post('/pos', [PosController::class, 'getProduct'])->name('pos.getProduct');
     Route::post('/get-coupon', [PosController::class, 'getCoupon'])->name('pos.getCoupon');
     Route::post('/pos/submit', [PosController::class, 'submit'])->name('pos.checkout');

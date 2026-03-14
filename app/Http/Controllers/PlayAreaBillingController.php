@@ -48,6 +48,7 @@ class PlayAreaBillingController extends Controller
 
         $validated = $request->validate([
             'package_id' => 'nullable|exists:packages,id',
+            'package_quantity' => 'nullable|integer|min:1|max:100',
             'employee_id' => 'nullable|exists:employees,id',
             'user_id' => 'nullable|exists:users,id',
             'customer.name' => 'nullable|string|max:255',
@@ -61,6 +62,7 @@ class PlayAreaBillingController extends Controller
         ]);
 
         $package = $validated['package_id'] ? Package::findOrFail($validated['package_id']) : null;
+        $packageQuantity = (int) ($validated['package_quantity'] ?? 1);
         $customerAge = $request->input('customer.age');
         $additionalPayment = 0;
         $packageTotal = 0;
@@ -70,7 +72,8 @@ class PlayAreaBillingController extends Controller
 
         if ($package) {
             $additionalPayment = (float) ($package->additional_payment ?? 0);
-            $packageTotal = (float) $package->base_price + $additionalPayment;
+            $packageUnitTotal = (float) $package->base_price + $additionalPayment;
+            $packageTotal = $packageUnitTotal * $packageQuantity;
             $expectedEnd = (clone $start)->addMinutes($package->base_time_minutes);
         }
 
@@ -82,6 +85,7 @@ class PlayAreaBillingController extends Controller
             $session = PlayAreaSession::create([
                 'barcode' => $temporaryBarcode,
                 'package_id' => $package?->id,
+                'package_quantity' => $package ? $packageQuantity : 1,
                 'employee_id' => $request->input('employee_id'),
                 'user_id' => $request->input('user_id'),
                 'customer_name' => $request->input('customer.name'),

@@ -70,6 +70,31 @@ class PosController extends Controller
         ]);
     }
 
+    public function searchCustomers(Request $request)
+    {
+        if (!Gate::allows('hasRole', ['Admin', 'Cashier'])) {
+            abort(403, 'Unauthorized');
+        }
+
+        $query = trim((string) $request->query('q', ''));
+
+        if ($query === '') {
+            return response()->json(['customers' => []]);
+        }
+
+        $customers = Customer::query()
+            ->where(function ($q) use ($query) {
+                $q->where('name', 'like', '%' . $query . '%')
+                    ->orWhere('email', 'like', '%' . $query . '%')
+                    ->orWhere('phone', 'like', '%' . $query . '%');
+            })
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get(['id', 'name', 'email', 'phone']);
+
+        return response()->json(['customers' => $customers]);
+    }
+
     public function getCoupon(Request $request)
     {
         $request->validate(
