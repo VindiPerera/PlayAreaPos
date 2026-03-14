@@ -30,22 +30,21 @@ class Package extends Model
     ];
 
     /**
-     * Calculate total price based on time and age
+     * Calculate total price based on duration.
      */
     public function calculatePrice($durationMinutes, $age = null)
     {
         $price = $this->base_price;
+
+        if ($this->additional_payment) {
+            $price += $this->additional_payment;
+        }
 
         // Calculate extra charges if duration exceeds base time
         if ($durationMinutes > $this->base_time_minutes) {
             $extraMinutes = $durationMinutes - $this->base_time_minutes;
             $extraChargeUnits = ceil($extraMinutes / $this->extra_charge_per_minutes);
             $price += $extraChargeUnits * $this->extra_charge;
-        }
-
-        // Add additional payment if age is above threshold
-        if ($age !== null && $age > $this->age_threshold && $this->additional_payment) {
-            $price += $this->additional_payment;
         }
 
         return round($price, 2);

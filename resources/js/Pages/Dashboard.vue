@@ -356,7 +356,7 @@
           <div class="card-content">
             <div class="icon-container">
               <img
-                src="/images/dashboard/packages.png"
+                src="/images/dashboard/coupons.png"
                 class="icon"
                 alt="Packages"
               />

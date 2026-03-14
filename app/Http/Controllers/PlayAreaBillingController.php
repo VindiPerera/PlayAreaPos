@@ -69,9 +69,7 @@ class PlayAreaBillingController extends Controller
         $open = $request->boolean('open', true);
 
         if ($package) {
-            if (!is_null($customerAge) && $customerAge > $package->age_threshold && $package->additional_payment) {
-                $additionalPayment = (float) $package->additional_payment;
-            }
+            $additionalPayment = (float) ($package->additional_payment ?? 0);
             $packageTotal = (float) $package->base_price + $additionalPayment;
             $expectedEnd = (clone $start)->addMinutes($package->base_time_minutes);
         }

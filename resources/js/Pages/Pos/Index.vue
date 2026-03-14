@@ -419,7 +419,7 @@
                 </div>
                 <p v-if="newSessionPackagePreview" class="text-gray-500 text-sm px-2">
                     {{ newSessionPackagePreview.base_time_minutes }} mins &bull;
-                    {{ Number(newSessionPackagePreview.base_price).toFixed(2) }} LKR
+                    {{ getPackageTotal(newSessionPackagePreview).toFixed(2) }} LKR
                 </p>
                 <button @click="createNewSession" :disabled="loadingCreateSession"
                     class="w-full py-4 text-xl font-bold bg-black text-white rounded-xl hover:bg-gray-800 transition-all disabled:opacity-50">
@@ -474,7 +474,7 @@
                         <div class="flex items-start justify-between gap-2">
                             <p class="text-xl font-bold leading-tight">{{ pkg.name }}</p>
                             <span class="text-sm font-semibold bg-green-100 text-green-700 px-3 py-1 rounded-full whitespace-nowrap">
-                                {{ Number(pkg.base_price).toFixed(2) }} LKR
+                                {{ getPackageTotal(pkg).toFixed(2) }} LKR
                             </span>
                         </div>
                         <p class="text-gray-600 mt-2">Duration: <span class="font-semibold">{{ pkg.base_time_minutes }} mins</span></p>
@@ -722,6 +722,12 @@ const newSessionPackagePreview = computed(
     () => props.packages?.find(p => Number(p.id) === Number(newSession.packageId)) || null
 );
 
+const getPackageTotal = (pkg) => {
+    if (!pkg) return 0;
+
+    return Number(pkg.base_price || 0) + Number(pkg.additional_payment || 0);
+};
+
 const createNewSession = async () => {
     loadingCreateSession.value = true;
     try {
@@ -765,7 +771,7 @@ const filteredPackages = computed(() => {
     const search = packageSearch.value.trim().toLowerCase();
     return (props.packages || []).filter(pkg => {
         const duration = Number(pkg.base_time_minutes || 0);
-        const price = Number(pkg.base_price || 0);
+        const price = getPackageTotal(pkg);
         const matchSearch = !search || pkg.name?.toLowerCase().includes(search);
         const matchDur = packageDurationFilter.value === "all"
             || (packageDurationFilter.value === "short" && duration <= 60)
