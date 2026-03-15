@@ -450,6 +450,7 @@ const startLocalTimer = () => {
     nowDisplay.value = new Date().toLocaleString();
 
     const extraMinutes = Math.max(0, elapsed - Number(fetchedSession.value.base_time_minutes || 0));
+    const packageQty = Math.max(1, Number(fetchedSession.value.package_quantity || 1));
     const perMinutes = Number(fetchedSession.value.extra_charge_per_minutes || 0);
     const charge = Number(fetchedSession.value.extra_charge || 0);
     const units = (extraMinutes > 0 && perMinutes > 0 && charge > 0)
@@ -457,7 +458,7 @@ const startLocalTimer = () => {
       : 0;
 
     totals.extra_minutes = extraMinutes;
-    totals.extra_amount = units * charge;
+    totals.extra_amount = units * charge * packageQty;
     totals.final_total = Number(fetchedSession.value.package_total || 0) + Number(totals.products_total || 0) + Number(totals.extra_amount || 0);
   }, 1000);
 };

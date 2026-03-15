@@ -507,7 +507,8 @@ class PlayAreaBillingController extends Controller
             ? (int) ceil($extraMinutes / max(1, (int) $session->extra_charge_per_minutes))
             : 0;
 
-        $extraAmount = $extraUnits * (float) $session->extra_charge;
+        $packageQuantity = max(1, (int) ($session->package_quantity ?? 1));
+        $extraAmount = $extraUnits * (float) $session->extra_charge * $packageQuantity;
         $finalTotal = (float) $session->package_total + $extraAmount + $productsTotal;
 
         return [

@@ -571,10 +571,11 @@ const updateAllTimers = () => {
         if (s.session.status === 'active' && s.session.start_time && s.session.package_id) {
             const elapsed = Math.max(0, Math.floor((Date.now() - new Date(s.session.start_time).getTime()) / 60000));
             const base = Number(s.session.base_time_minutes || 0);
+            const packageQty = Math.max(1, Number(s.session.package_quantity || 1));
             const extra = Math.max(0, elapsed - base);
             const perUnit = Math.max(1, Number(s.session.extra_charge_per_minutes || 1));
             const units = extra > 0 ? Math.ceil(extra / perUnit) : 0;
-            const extraAmt = units * Number(s.session.extra_charge || 0);
+            const extraAmt = units * Number(s.session.extra_charge || 0) * packageQty;
             sessionTimers[s.session.id] = {
                 elapsed,
                 extra_minutes: extra,
@@ -974,10 +975,11 @@ const startFetchedOrderTimer = () => {
         const elapsed = Math.max(0, Math.floor((Date.now() - new Date(fetchedOrder.value.start_time).getTime()) / 60000));
         elapsedDisplay.value = elapsed;
         const extra = Math.max(0, elapsed - Number(fetchedOrder.value.base_time_minutes || 0));
+        const packageQty = Math.max(1, Number(fetchedOrder.value.package_quantity || 1));
         const perUnit = Math.max(1, Number(fetchedOrder.value.extra_charge_per_minutes || 1));
         const units = extra > 0 ? Math.ceil(extra / perUnit) : 0;
         orderTotals.extra_minutes = extra;
-        orderTotals.extra_amount = units * Number(fetchedOrder.value.extra_charge || 0);
+        orderTotals.extra_amount = units * Number(fetchedOrder.value.extra_charge || 0) * packageQty;
         orderTotals.final_total = Number(fetchedOrder.value.package_total || 0) + Number(orderTotals.products_total || 0) + Number(orderTotals.extra_amount || 0);
     }, 1000);
 };
