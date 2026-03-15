@@ -1128,35 +1128,35 @@ const printFinalReceipt = (sessionData, totalsData, balance) => {
 * { margin:0; padding:0; box-sizing:border-box; }
 @page { margin: 0; }
 @media print { html,body { width:100mm; } .receipt { width:100mm; } }
-body { background:#fff; font-family:Arial,sans-serif; font-size:12px; color:#000; }
+body { background:#fff; font-family:Arial,sans-serif; font-size:13px; color:#000; }
 .receipt { width:100mm; margin:0 auto; padding:6mm 5mm 10mm 5mm; }
 .header { text-align:center; border-bottom:1px dashed #000; padding-bottom:8px; margin-bottom:10px; }
 .header img { width:130px; height:auto; display:block; margin:0 auto 5px auto; }
-.header .shop { font-size:15px; font-weight:bold; letter-spacing:2px; margin-bottom:2px; }
-.header .tel { font-size:11px; }
+.header .shop { font-size:17px; font-weight:bold; letter-spacing:2px; margin-bottom:2px; }
+.header .tel { font-size:12px; }
 .title-sec { text-align:center; border-bottom:1px dashed #000; padding-bottom:8px; margin-bottom:10px; }
-.title-sec .lbl { font-size:15px; font-weight:bold; letter-spacing:1px; margin-bottom:4px; }
-.title-sec .bill-no { font-size:13px; font-weight:bold; }
-.title-sec .bill-dt { font-size:10px; color:#000; margin-top:3px; }
+.title-sec .lbl { font-size:17px; font-weight:bold; letter-spacing:1px; margin-bottom:4px; }
+.title-sec .bill-no { font-size:15px; font-weight:bold; }
+.title-sec .bill-dt { font-size:11px; color:#000; margin-top:3px; }
 .info-sec { border-bottom:1px dashed #000; padding-bottom:8px; margin-bottom:10px; }
-.irow { display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px; }
+.irow { display:flex; justify-content:space-between; margin-bottom:4px; font-size:12px; }
 .irow .k { font-weight:bold; }
 .items-sec { margin-bottom:10px; }
-table { width:100%; border-collapse:collapse; font-size:11px; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
 th,td { padding:3px 4px; }
 th { text-align:left; border-bottom:1px solid #000; }
 td { vertical-align:top; }
 td:nth-child(2) { text-align:center; }
 td:nth-child(3) { text-align:right; white-space:nowrap; }
 .tot-sec { border-top:1px dashed #000; padding-top:7px; margin-bottom:10px; }
-.tot-row { display:flex; justify-content:space-between; margin-bottom:4px; font-size:12px; }
-.grand-row { display:flex; justify-content:space-between; font-size:14px; font-weight:bold; border-top:1px solid #000; padding-top:5px; margin-top:5px; margin-bottom:7px; }
-.pay-box { border:1px solid #ccc; border-radius:3px; padding:5px 7px; font-size:11px; margin-bottom:10px; }
+.tot-row { display:flex; justify-content:space-between; margin-bottom:4px; font-size:13px; }
+.grand-row { display:flex; justify-content:space-between; font-size:16px; font-weight:bold; border-top:1px solid #000; padding-top:5px; margin-top:5px; margin-bottom:7px; }
+.pay-box { border:1px solid #ccc; border-radius:3px; padding:5px 7px; font-size:12px; margin-bottom:10px; }
 .pay-box span { font-weight:bold; }
 .barcode-sec { text-align:center; border-top:1px dashed #000; border-bottom:1px dashed #000; padding:8px 0 6px 0; margin-bottom:10px; }
 .barcode-sec svg { width:100%; max-width:90mm; }
-.barcode-sec .bc-text { font-size:12px; font-weight:bold; letter-spacing:2px; margin-top:4px; }
-.footer { text-align:center; font-size:10px; color:#000; }
+.barcode-sec .bc-text { font-size:13px; font-weight:bold; letter-spacing:2px; margin-top:4px; }
+.footer { text-align:center; font-size:11px; color:#000; }
 .footer p { margin-bottom:3px; }
 </style>
 </head>
