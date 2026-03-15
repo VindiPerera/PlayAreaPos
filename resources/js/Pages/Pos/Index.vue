@@ -1126,6 +1126,7 @@ const printFinalReceipt = (sessionData, totalsData, balance) => {
 <script src="/js/JsBarcode.all.min.js"><\/script>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
+@page { margin: 0; }
 @media print { html,body { width:100mm; } .receipt { width:100mm; } }
 body { background:#fff; font-family:Arial,sans-serif; font-size:12px; color:#000; }
 .receipt { width:100mm; margin:0 auto; padding:6mm 5mm 10mm 5mm; }
@@ -1136,7 +1137,7 @@ body { background:#fff; font-family:Arial,sans-serif; font-size:12px; color:#000
 .title-sec { text-align:center; border-bottom:1px dashed #000; padding-bottom:8px; margin-bottom:10px; }
 .title-sec .lbl { font-size:15px; font-weight:bold; letter-spacing:1px; margin-bottom:4px; }
 .title-sec .bill-no { font-size:13px; font-weight:bold; }
-.title-sec .bill-dt { font-size:10px; color:#555; margin-top:3px; }
+.title-sec .bill-dt { font-size:10px; color:#000; margin-top:3px; }
 .info-sec { border-bottom:1px dashed #000; padding-bottom:8px; margin-bottom:10px; }
 .irow { display:flex; justify-content:space-between; margin-bottom:4px; font-size:11px; }
 .irow .k { font-weight:bold; }
@@ -1155,7 +1156,7 @@ td:nth-child(3) { text-align:right; white-space:nowrap; }
 .barcode-sec { text-align:center; border-top:1px dashed #000; border-bottom:1px dashed #000; padding:8px 0 6px 0; margin-bottom:10px; }
 .barcode-sec svg { width:100%; max-width:90mm; }
 .barcode-sec .bc-text { font-size:12px; font-weight:bold; letter-spacing:2px; margin-top:4px; }
-.footer { text-align:center; font-size:10px; color:#444; }
+.footer { text-align:center; font-size:10px; color:#000; }
 .footer p { margin-bottom:3px; }
 </style>
 </head>
@@ -1191,7 +1192,7 @@ td:nth-child(3) { text-align:right; white-space:nowrap; }
     <div class="tot-sec">
         ${sessionData.package_id ? `<div class="tot-row"><span>Package</span><span>LKR ${(Number(totalsData.package_total)||0).toFixed(2)}</span></div>` : ''}
         ${Number(totalsData.products_total) > 0 ? `<div class="tot-row"><span>Products</span><span>LKR ${(Number(totalsData.products_total)||0).toFixed(2)}</span></div>` : ''}
-        ${totalsData.extra_amount > 0 ? `<div class="tot-row" style="color:#c00;"><span>Extra Time</span><span>LKR ${(Number(totalsData.extra_amount)||0).toFixed(2)}</span></div>` : ''}
+        ${totalsData.extra_amount > 0 ? `<div class="tot-row"><span>Extra Time</span><span>LKR ${(Number(totalsData.extra_amount)||0).toFixed(2)}</span></div>` : ''}
         <div class="grand-row"><span>GRAND TOTAL</span><span>LKR ${(Number(totalsData.final_total)||0).toFixed(2)}</span></div>
         <div class="tot-row"><span>Cash</span><span>LKR ${cashPaid.toFixed(2)}</span></div>
         <div class="tot-row" style="font-weight:bold;"><span>Balance</span><span>LKR ${(Number(balance)||0).toFixed(2)}</span></div>

@@ -498,7 +498,8 @@ const printFinalReceipt = (sessionData, totalsData, balance) => {
       <head>
         <title>Play Area Receipt</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 16px; }
+          @page { margin: 0; }
+          body { font-family: Arial, sans-serif; padding: 16px; color: #000; }
           table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
           h2, h3 { margin: 4px 0; }
