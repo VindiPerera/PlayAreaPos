@@ -112,6 +112,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('employees', EmployeeController::class);
     Route::resource('transactionHistory', TransactionHistoryController::class );
     Route::post('/transactions/delete', [TransactionHistoryController::class, 'destroy'])->name('transactions.delete');
+    Route::post('/transactions/cancel', [TransactionHistoryController::class, 'cancel'])->name('transactions.cancel');
     Route::resource('stock-transition', StockTransactionController::class);
     Route::resource('manualpos', ManualPosController::class);
 

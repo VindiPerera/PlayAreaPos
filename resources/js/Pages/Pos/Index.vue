@@ -162,9 +162,9 @@
 
                             <div class="grid md:grid-cols-3 gap-3 items-center">
                                 <div class="flex items-center gap-2">
-                                    <div @click="checkoutPaymentMethod = 'cash'"
+                                    <div @click="setCheckoutPaymentMethod('cash')"
                                         :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold text-lg', checkoutPaymentMethod === 'cash' ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 text-gray-600']">Cash</div>
-                                    <div @click="checkoutPaymentMethod = 'card'"
+                                    <div @click="setCheckoutPaymentMethod('card')"
                                         :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold text-lg', checkoutPaymentMethod === 'card' ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 text-gray-600']">Card</div>
                                 </div>
                                 <input v-model.number="checkoutCash" type="number" min="0" placeholder="Cash Amount"
@@ -291,9 +291,9 @@
                                     <p class="text-xl font-bold text-black">Final Total: {{ sessionTotalDisplay }} LKR</p>
                                     <div class="flex gap-3 items-center">
                                         <p class="font-semibold">Payment:</p>
-                                        <div @click="checkoutPaymentMethod = 'cash'"
+                                        <div @click="setCheckoutPaymentMethod('cash')"
                                             :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold transition-all', checkoutPaymentMethod === 'cash' ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 text-gray-600']">Cash</div>
-                                        <div @click="checkoutPaymentMethod = 'card'"
+                                        <div @click="setCheckoutPaymentMethod('card')"
                                             :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold transition-all', checkoutPaymentMethod === 'card' ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 text-gray-600']">Card</div>
                                     </div>
                                     <input v-model.number="checkoutCash" type="number" min="0" placeholder="Cash Amount"
@@ -352,9 +352,9 @@
                                 <p class="text-xl font-bold">Total: {{ liveBillTotal }} LKR</p>
                                 <div class="flex gap-3 items-center">
                                     <p class="font-semibold">Payment:</p>
-                                    <div @click="liveBillPaymentMethod = 'cash'"
+                                    <div @click="setLiveBillPaymentMethod('cash')"
                                         :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold', liveBillPaymentMethod === 'cash' ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 text-gray-600']">Cash</div>
-                                    <div @click="liveBillPaymentMethod = 'card'"
+                                    <div @click="setLiveBillPaymentMethod('card')"
                                         :class="['cursor-pointer px-4 py-2 border rounded-xl font-bold', liveBillPaymentMethod === 'card' ? 'bg-yellow-400 border-yellow-500' : 'border-gray-300 text-gray-600']">Card</div>
                                 </div>
                                 <input v-model.number="liveBillCash" type="number" min="0" placeholder="Cash Amount"
@@ -661,6 +661,21 @@ const checkoutPaymentMethod = ref("cash");
 const checkoutCash = ref(0);
 const loadingClose = ref(false);
 
+const setCheckoutPaymentMethod = (method) => {
+    checkoutPaymentMethod.value = method;
+
+    if (method === "card") {
+        if (fetchedOrder.value) {
+            checkoutCash.value = Number(orderTotals.final_total || 0);
+            return;
+        }
+
+        if (selectedSession.value) {
+            checkoutCash.value = Number(sessionTotalDisplay.value || 0);
+        }
+    }
+};
+
 const confirmSessionFinalBill = async () => {
     if (!selectedSession.value) return;
     loadingClose.value = true;
@@ -903,6 +918,14 @@ const showLiveBillConfirm = ref(false);
 const liveBillPaymentMethod = ref("cash");
 const liveBillCash = ref(0);
 const loadingLiveBill = ref(false);
+
+const setLiveBillPaymentMethod = (method) => {
+    liveBillPaymentMethod.value = method;
+
+    if (method === "card") {
+        liveBillCash.value = Number(liveBillTotal.value || 0);
+    }
+};
 
 const liveBillTotal = computed(() =>
     liveBillProducts.value.reduce((t, i) => t + i.selling_price * i.quantity, 0).toFixed(2)

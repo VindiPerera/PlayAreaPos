@@ -49,6 +49,7 @@ class ReportController extends Controller
     if ($from || $to) {
         $productIds = SaleItem::whereHas('sale', function ($q) use ($applyCreatedWindow) {
                 $applyCreatedWindow($q);
+                $q->where('status', 'active');
             })
             ->pluck('product_id')
             ->unique();
@@ -60,8 +61,9 @@ class ReportController extends Controller
         $products = Product::orderBy('created_at', 'desc')->get();
     }
 
-    // -------- Sales (filter by created_at) --------
-    $salesQuery = Sale::with(['saleItems.product.category', 'employee', 'customer']);
+    // -------- Sales (filter by created_at, exclude cancelled) --------
+    $salesQuery = Sale::with(['saleItems.product.category', 'employee', 'customer'])
+        ->where('status', 'active');
 
     if ($from || $to) {
         $applyCreatedWindow($salesQuery);
@@ -70,6 +72,7 @@ class ReportController extends Controller
     // For qty per product (respect same window through parent sale)
     $salesQuantitiesQuery = SaleItem::query()->whereHas('sale', function ($q) use ($applyCreatedWindow, $from, $to) {
         if ($from || $to) $applyCreatedWindow($q);
+        $q->where('status', 'active');
     });
 
     $salesQuantities = $salesQuantitiesQuery

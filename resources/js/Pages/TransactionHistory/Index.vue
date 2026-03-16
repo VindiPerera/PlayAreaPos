@@ -98,24 +98,35 @@
                         <tr
                             v-for="(history, index) in allhistoryTransactions"
                             :key="history.id"
-                            class="transition duration-200 ease-in-out hover:bg-gray-200 hover:shadow-lg"
+                            :class="history.status === 'cancelled' ? 'bg-red-50 opacity-70' : 'transition duration-200 ease-in-out hover:bg-gray-200 hover:shadow-lg'"
                         >
                             <td class="px-6 py-3 text- first-letter:">{{ index + 1 }}</td>
-                            <td class="p-4 font-bold border-gray-200">{{ history.order_id || "N/A" }}</td>
+                            <td class="p-4 font-bold border-gray-200">
+                                {{ history.order_id || "N/A" }}
+                                <span v-if="history.status === 'cancelled'" class="ml-2 px-2 py-0.5 text-[10px] font-bold text-white bg-red-500 rounded-full uppercase">Cancelled</span>
+                            </td>
                             <td class="p-4 font-bold border-gray-200">{{ history.total_amount - (history.discount || 0) - (history.custom_discount || 0) || "N/A" }}</td>
                              <td class="p-4 font-bold border-gray-200">{{((parseFloat(history.discount) || 0) + (parseFloat(history.custom_discount) || 0)).toLocaleString()}}</td>
                             <td class="p-4 font-bold border-gray-200">{{ history.payment_method || "N/A" }}</td>
                             <td class="p-4 font-bold border-gray-200">{{ history.sale_date || "N/A" }}</td>
                             <td class="p-4 font-bold border-gray-200">
-                                <!-- <button
-                                    @click="printReceipt(history)"
-                                    class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 mr-4"
-                                >
-                                    Print
-                                </button> -->
-                                <button class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600" @click="deleteReceipt(history.order_id)">
-                                    Delete
-                                </button>
+                                <template v-if="history.status !== 'cancelled'">
+                                    <button
+                                        @click="openCancelModal(history)"
+                                        class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 mr-2"
+                                    >
+                                        Cancel Bill
+                                    </button>
+                                    <button class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600" @click="deleteReceipt(history.order_id)">
+                                        Delete
+                                    </button>
+                                </template>
+                                <template v-else>
+                                    <span class="text-red-400 text-[12px] italic">
+                                        Cancelled<br/>
+                                        <span v-if="history.cancel_reason" class="text-gray-400">{{ history.cancel_reason }}</span>
+                                    </span>
+                                </template>
                             </td>
 
                         </tr>
@@ -134,6 +145,37 @@
         </div>
      </div>
 <Footer />
+
+<!-- Cancel Bill Modal -->
+<div v-if="showCancelModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4">
+        <h2 class="text-xl font-bold text-gray-800">Cancel Bill</h2>
+        <p class="text-sm text-gray-600">
+            You are about to cancel order <span class="font-bold text-red-600">{{ cancelTarget?.order_id }}</span>.
+            The stock will be restored automatically. This bill will remain in history as <span class="font-bold text-red-500">Cancelled</span> for your records.
+        </p>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Reason for cancellation (optional)</label>
+            <textarea
+                v-model="cancelReason"
+                rows="3"
+                placeholder="e.g. Customer changed mind, duplicate order..."
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+            ></textarea>
+        </div>
+        <div class="flex justify-end space-x-3">
+            <button
+                @click="closeCancelModal"
+                class="px-5 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
+            >Close</button>
+            <button
+                @click="confirmCancel"
+                class="px-5 py-2 rounded-lg bg-orange-500 text-white font-semibold hover:bg-orange-600"
+            >Confirm Cancel</button>
+        </div>
+    </div>
+</div>
+
 </template>
 
 
@@ -153,6 +195,36 @@ const props = defineProps({
 });
 const form = useForm({});
 
+// ── Cancel Bill ──────────────────────────────────────────────────
+const showCancelModal = ref(false);
+const cancelTarget    = ref(null);
+const cancelReason    = ref('');
+
+const openCancelModal = (history) => {
+    cancelTarget.value  = history;
+    cancelReason.value  = '';
+    showCancelModal.value = true;
+};
+
+const closeCancelModal = () => {
+    showCancelModal.value = false;
+    cancelTarget.value    = null;
+    cancelReason.value    = '';
+};
+
+const confirmCancel = () => {
+    if (!cancelTarget.value) return;
+    router.post(route('transactions.cancel'), {
+        order_id:      cancelTarget.value.order_id,
+        cancel_reason: cancelReason.value || null,
+    }, {
+        onSuccess: () => closeCancelModal(),
+        onError: (error) => {
+            alert('Error: ' + (error.message || 'Something went wrong.'));
+        },
+    });
+};
+// ────────────────────────────────────────────────────────────────
 
 const deleteReceipt = (orderId) => {
   if (confirm("Are you sure you want to delete this record? This action cannot be undone.")) {
@@ -167,6 +239,10 @@ const deleteReceipt = (orderId) => {
 
 
 $(document).ready(function () {
+  if ($.fn.DataTable.isDataTable("#TransitionTable")) {
+    $("#TransitionTable").DataTable().destroy();
+  }
+
   let table = $("#TransitionTable").DataTable({
     dom: "Bfrtip",
     pageLength: 10,

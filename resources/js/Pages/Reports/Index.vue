@@ -265,8 +265,6 @@
             <col style="width:110px" />
             <col style="width:170px" />
             <col style="width:200px" />
-            <col style="width:70px" />
-            <col style="width:140px" />
             <col style="width:140px" />
             <col style="width:140px" />
             <col style="width:140px" />
@@ -278,10 +276,8 @@
               <th class="p-3 text-left font-semibold">Date</th>
               <th class="p-3 text-left font-semibold">Order Number</th>
               <th class="p-3 text-left font-semibold">Customer</th>
-              <th class="p-3 text-center font-semibold">Qty</th>
               <th class="p-3 num font-semibold">Final Selling Price(LKR)</th>
               <th class="p-3 num font-semibold">Discounts</th>
-              <th class="p-3 num font-semibold">Cost (LKR)</th>
               <th class="p-3 num font-semibold">Profit (LKR)
 
               </th>
@@ -296,7 +292,6 @@
                 {{ s.order_id ? s.order_id : 'Service -' }} {{ s.service_name }}
               </td>
               <td class="p-3">{{ s.customer?.name ?? 'N/A' }}</td>
-              <td class="p-3 text-center">{{ saleQty(s) }}</td>
           <td class="p-3 num text-center">
   {{
     toMoney(
@@ -317,7 +312,6 @@
                 {{ discountDisplay(s) }}
               </td>
 
-              <td class="p-3 num text-center">{{ toMoney(s.total_cost || 0) }}</td>
               <td class="p-3 num text-center">
                 <!-- {{ toMoney(profitAmount(s)) }} -->
  <ul>
@@ -361,15 +355,11 @@
           <tfoot class="bg-gray-50 text-[12px] font-semibold">
             <tr>
               <td class="p-3 text-right" colspan="4">Totals:</td>
-              <td class="p-3 text-center">{{ salesTotalQty.toLocaleString() }}</td>
               <td class="p-3 num text-center">
                 {{ salesGrossTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) }}
               </td>
               <td class="p-3 num text-center">
                 {{ salesDiscountTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) }}
-              </td>
-              <td class="p-3 num text-center">
-                {{ salesCostTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) }}
               </td>
               <td class="p-3 num text-center">
   {{ salesProfitTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) }}
@@ -839,13 +829,10 @@ const downloadSalesTablePDF = () => {
     const date        = formatDate(s.sale_date);
     const orderNumber = s.order_id ? s.order_id : `Service - ${s.service_name || ""}`;
     const customer    = s.customer?.name ?? "N/A";
-    const qty         = saleQty(s);
-
     // UI shows Final Selling Price = total_amount - custom_discount (percent handled)
     const grossNet    = Number(s.total_amount || 0) - customDiscountLkr(s);
 
     const discounts   = discountDisplay(s);
-    const cost        = Number(s.total_cost || 0);
     const profit      = saleProfit(s);
 
     return [
@@ -853,19 +840,15 @@ const downloadSalesTablePDF = () => {
       date,
       orderNumber,
       customer,
-      qty.toString(),
       toMoney(grossNet),
       discounts,
-      toMoney(cost),
       toMoney(profit),
     ];
   });
 
   // Footer totals — mirror UI footer
-  const totalQty       = sales.value.reduce((a, s) => a + saleQty(s), 0);
   const totalGrossNet  = sales.value.reduce((a, s) => a + (Number(s.total_amount || 0) - customDiscountLkr(s)), 0);
   const totalDiscounts = sales.value.reduce((a, s) => a + customDiscountLkr(s), 0);
-  const totalCost      = sales.value.reduce((a, s) => a + Number(s.total_cost || 0), 0);
   const totalProfit    = sales.value.reduce((a, s) => a + saleProfit(s), 0);
 
   // PDF Header
@@ -880,19 +863,15 @@ const downloadSalesTablePDF = () => {
     "Date",
     "Order Number",
     "Customer",
-    "Qty",
     "Final Selling Price(LKR)",
     "Discounts",
-    "Cost (LKR)",
     "Profit (LKR)",
   ]];
 
   const foot = [[
     { content: "Totals:", colSpan: 4, styles: { halign: "right", fontStyle: "bold" } },
-    { content: totalQty.toLocaleString(), styles: { halign: "center", fontStyle: "bold" } },
     toMoney(totalGrossNet),
     toMoney(totalDiscounts),
-    toMoney(totalCost),
     toMoney(totalProfit),
   ]];
 
@@ -907,19 +886,16 @@ const downloadSalesTablePDF = () => {
     columnStyles: {
       0: { cellWidth: 10 },
       1: { cellWidth: 22 },
-      2: { cellWidth: 36 },
-      3: { cellWidth: 36 },
-      4: { cellWidth: 14, halign: "center" },
-      5: { cellWidth: 28, halign: "right" }, // Final Selling Price
-      6: { cellWidth: 28, halign: "right" }, // Discounts
-      7: { cellWidth: 28, halign: "right" }, // Cost
-      8: { cellWidth: 28, halign: "right" }, // Profit
+      2: { cellWidth: 40 },
+      3: { cellWidth: 44 },
+      4: { cellWidth: 34, halign: "right" }, // Final Selling Price
+      5: { cellWidth: 42, halign: "right" }, // Discounts
+      6: { cellWidth: 34, halign: "right" }, // Profit
     },
     margin: { top: 18, left: 8, right: 8 },
     didParseCell: (data) => {
       if (data.section === "foot") {
-        if (data.column.index === 4) data.cell.styles.halign = "center"; // Qty
-        if (data.column.index >= 5)  data.cell.styles.halign = "right";  // Money columns
+        if (data.column.index >= 4)  data.cell.styles.halign = "right";  // Money columns
         if (data.column.index <= 3)  data.cell.styles.halign = "right";  // "Totals:"
       }
     },

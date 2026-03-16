@@ -21,6 +21,9 @@ class Sale extends Model
         'total_cost',
         'cash',
         'custom_discount',
+        'status',
+        'cancel_reason',
+        'cancelled_at',
     ];
 
 
