@@ -113,6 +113,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('transactionHistory', TransactionHistoryController::class );
     Route::post('/transactions/delete', [TransactionHistoryController::class, 'destroy'])->name('transactions.delete');
     Route::post('/transactions/cancel', [TransactionHistoryController::class, 'cancel'])->name('transactions.cancel');
+    Route::get('/transactions/{order_id}/reprint', [TransactionHistoryController::class, 'reprintData'])->name('transactions.reprint');
     Route::resource('stock-transition', StockTransactionController::class);
     Route::resource('manualpos', ManualPosController::class);
 

@@ -57,4 +57,10 @@ class Sale extends Model
     {
         return $this->belongsTo(User::class, 'user_id','id');
     }
+
+    public function playAreaSession()
+    {
+        // PlayAreaSession.barcode matches Sale.order_id
+        return $this->hasOne(PlayAreaSession::class, 'barcode', 'order_id');
+    }
 }

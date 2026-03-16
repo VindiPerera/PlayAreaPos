@@ -9,6 +9,8 @@ use App\Models\SaleItem;
 use App\Models\Product; 
 use App\Models\CompanyInfo;
 use App\Models\StockTransaction;
+use App\Models\PlayAreaSession;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\DB;
 
@@ -16,7 +18,16 @@ class TransactionHistoryController extends Controller
 {
     public function index()
 {
-    $allhistoryTransactions = Sale::with(['saleItems','saleItems.product','customer','user'])
+    $allhistoryTransactions = Sale::with([
+            'saleItems',
+            'saleItems.product',
+            'customer',
+            'user',
+            'playAreaSession',
+            'playAreaSession.package',
+            'playAreaSession.items',
+            'playAreaSession.items.product',
+        ])
         ->orderBy('created_at', 'desc')
         ->get();
 
@@ -112,6 +123,47 @@ public function cancel(Request $request)
     });
 
     return redirect()->route('transactionHistory.index')->banner('Bill ' . $sale->order_id . ' has been cancelled and stock restored.');
+}
+
+public function reprintData($order_id)
+{
+    $sale = Sale::with(['saleItems.product', 'customer'])
+        ->where('order_id', $order_id)
+        ->firstOrFail();
+
+    $session = PlayAreaSession::with(['package', 'items.product'])
+        ->where('barcode', $order_id)
+        ->first();
+
+    $totals  = null;
+    $balance = 0;
+
+    if ($session) {
+        $elapsed = 0;
+        if ($session->start_time && $session->end_time) {
+            $elapsed = (int) Carbon::parse($session->start_time)
+                ->diffInMinutes(Carbon::parse($session->end_time));
+        }
+
+        $totals = [
+            'elapsed_minutes' => $elapsed,
+            'extra_minutes'   => (int)   ($session->extra_minutes  ?? 0),
+            'extra_amount'    => (float)  ($session->extra_amount   ?? 0),
+            'products_total'  => (float)  ($session->products_total ?? 0),
+            'package_total'   => (float)  ($session->package_total  ?? 0),
+            'final_total'     => (float)  ($session->final_total    ?? $sale->total_amount),
+            'cash'            => (float)  ($session->cash           ?? $sale->cash ?? 0),
+        ];
+
+        $balance = round($totals['cash'] - $totals['final_total'], 2);
+    }
+
+    return response()->json([
+        'session' => $session,
+        'totals'  => $totals,
+        'balance' => $balance,
+        'sale'    => $sale,
+    ]);
 }
 
 

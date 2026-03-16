@@ -76,7 +76,7 @@ $productsQuery = Product::with('category', 'color', 'size', 'supplier')
                 $queryBuilder->where('category_id', $selectedCategory);
             });
 
-        $products = $productsQuery->orderBy('created_at', 'desc')->paginate(8);
+        $products = $productsQuery->orderBy('created_at', 'desc')->get();
 
         return response()->json([
             'products' => $products,
@@ -130,7 +130,7 @@ $productsQuery = Product::with('category', 'color', 'size', 'supplier')
 
         $count = $productsQuery->count();
 
-        $products = $productsQuery->orderBy('created_at', 'desc')->paginate(8);
+        $products = $productsQuery->orderBy('created_at', 'desc')->get();
 
 
         // $allcategories = Category::with('parent')->get();
@@ -611,7 +611,7 @@ public function fetchProducts2(Request $request)
         $productsQuery->orderBy('products.created_at', 'desc');
     }
 
-    $products = $productsQuery->paginate(8);
+    $products = $productsQuery->get();
 
 
     return response()->json([

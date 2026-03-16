@@ -189,9 +189,9 @@
       </div>
 
       <div class="grid md:grid-cols-4 grid-cols-1 gap-8">
-        <template v-if="products.data.length > 0">
+        <template v-if="products.length > 0">
           <div
-            v-for="product in products.data"
+            v-for="product in products"
             :key="product.id"
             class="space-y-4 text-white transition-transform duration-300 transform bg-black border-4 border-black shadow-lg hover:-translate-y-4"
           >
@@ -336,48 +336,7 @@
         </template>
       </div>
 
-      <div class="flex space-x-2 pagination">
-        <!-- Prev Button -->
-        <span
-          v-if="products.links[0]"
-          @click.prevent="navigateTo(products.links[0].url)"
-          :class="[
-            'pagination-btn',
-            { 'pagination-disabled': !products.links[0].url },
-          ]"
-        >
-          Previous
-        </span>
 
-        <!-- Pagination Links -->
-        <span
-          v-for="(link) in products.links.slice(
-            1,
-            products.links.length - 1
-          )"
-          :key="link.label"
-          @click.prevent="navigateTo(link.url)"
-          :class="['pagination-btn', { 'pagination-active': link.active }]"
-          v-html="link.label"
-        ></span>
-
-        <!-- Next Button -->
-        <span
-          v-if="products.links[products.links.length - 1]"
-          @click.prevent="
-            navigateTo(products.links[products.links.length - 1].url)
-          "
-          :class="[
-            'pagination-btn',
-            {
-              'pagination-disabled':
-                !products.links[products.links.length - 1].url,
-            },
-          ]"
-        >
-          Next
-        </span>
-      </div>
     </div>
   </div>
 

@@ -112,6 +112,12 @@
                             <td class="p-4 font-bold border-gray-200">
                                 <template v-if="history.status !== 'cancelled'">
                                     <button
+                                        @click="reprintReceipt(history)"
+                                        class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 mr-2"
+                                    >
+                                        Reprint
+                                    </button>
+                                    <button
                                         @click="openCancelModal(history)"
                                         class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 mr-2"
                                     >
@@ -181,7 +187,8 @@
 
 <script setup>
 import { ref } from "vue";
-import { router,useForm } from "@inertiajs/vue3";
+import { router, useForm } from "@inertiajs/vue3";
+import axios from "axios";
 import { Head, Link } from "@inertiajs/vue3";
 import Header from "@/Components/custom/Header.vue";
 import Footer from "@/Components/custom/Footer.vue";
@@ -235,6 +242,119 @@ const deleteReceipt = (orderId) => {
     });
   }
 };
+
+// ── Reprint Final Bill ───────────────────────────────────────────
+const reprintReceipt = async (history) => {
+  try {
+    const res = await axios.get(route('transactions.reprint', { order_id: history.order_id }));
+    const { session, totals, balance, sale } = res.data;
+    const f2 = (v) => Number(v ?? 0).toFixed(2);
+    const barcode   = sale?.order_id || history.order_id || '';
+    const payMethod = history.payment_method || 'Cash';
+
+    // Items rows
+    const itemsArr    = (session && session.items && session.items.length) ? session.items : (sale && sale.sale_items ? sale.sale_items : []);
+    const productRows = itemsArr.map(function(item) {
+      return '<tr><td>' + (item.product ? item.product.name : 'Item') + '</td><td style="text-align:center;">' + item.quantity + '</td><td style="text-align:right;">LKR ' + f2(item.total_price) + '</td></tr>';
+    }).join('');
+
+    // Info
+    const customerName = (session && session.customer_name) ? session.customer_name : ((sale && sale.customer) ? sale.customer.name : 'Walk-in');
+    const serviceName  = (session && session.package && session.package.name) ? session.package.name : '';
+    const elapsedMins  = totals ? (totals.elapsed_minutes || 0) : 0;
+    const extraMins    = totals ? (totals.extra_minutes || 0) : 0;
+
+    // Totals
+    let totalsHtml = '';
+    if (totals) {
+      if (Number(totals.package_total) > 0)
+        totalsHtml += '<div class="tot-row"><span>Package</span><span>LKR ' + f2(totals.package_total) + '</span></div>';
+      if (Number(totals.products_total) > 0)
+        totalsHtml += '<div class="tot-row"><span>Products</span><span>LKR ' + f2(totals.products_total) + '</span></div>';
+      if (Number(totals.extra_amount) > 0)
+        totalsHtml += '<div class="tot-row"><span>Extra Time</span><span>LKR ' + f2(totals.extra_amount) + '</span></div>';
+      totalsHtml += '<div class="grand-row"><span>GRAND TOTAL</span><span>LKR ' + f2(totals.final_total) + '</span></div>';
+      totalsHtml += '<div class="tot-row"><span>Cash</span><span>LKR ' + f2(totals.cash) + '</span></div>';
+      totalsHtml += '<div class="tot-row" style="font-weight:bold;"><span>Balance</span><span>LKR ' + f2(balance) + '</span></div>';
+    } else {
+      const grandTotal = Number(sale.total_amount) - Number(sale.discount || 0) - Number(sale.custom_discount || 0);
+      const cash       = Number(sale.cash || 0);
+      var disc = Number(sale.discount || 0) + Number(sale.custom_discount || 0);
+      if (disc > 0)
+        totalsHtml += '<div class="tot-row"><span>Discount</span><span>LKR ' + f2(disc) + '</span></div>';
+      totalsHtml += '<div class="grand-row"><span>GRAND TOTAL</span><span>LKR ' + f2(grandTotal) + '</span></div>';
+      totalsHtml += '<div class="tot-row"><span>Cash</span><span>LKR ' + f2(cash) + '</span></div>';
+      totalsHtml += '<div class="tot-row" style="font-weight:bold;"><span>Balance</span><span>LKR ' + f2(cash - grandTotal) + '</span></div>';
+    }
+
+    const infoRows = (serviceName ? '<div class="irow"><span class="k">Service</span><span>' + serviceName + '</span></div>' : '')
+      + (elapsedMins > 0 ? '<div class="irow"><span class="k">Time Used</span><span>' + elapsedMins + ' mins</span></div>' : '')
+      + (extraMins > 0 ? '<div class="irow"><span class="k">Overtime</span><span>' + extraMins + ' mins</span></div>' : '');
+
+    const itemsSection = productRows
+      ? '<div class="items-sec"><table><thead><tr><th>Item</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Price</th></tr></thead><tbody>' + productRows + '</tbody></table></div>'
+      : '';
+
+    const payDisplay = payMethod.charAt(0).toUpperCase() + payMethod.slice(1);
+
+    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Final Bill ' + barcode + '</title>'
+      + '<script src="/js/JsBarcode.all.min.js"><\/script>'
+      + '<style>'
+      + '* { margin:0; padding:0; box-sizing:border-box; }'
+      + '@page { margin: 0; }'
+      + '@media print { html,body { width:100mm; } .receipt { width:100mm; } }'
+      + 'body { background:#fff; font-family:Arial,sans-serif; font-size:13px; color:#000; }'
+      + '.receipt { width:100mm; margin:0 auto; padding:6mm 5mm 10mm 5mm; }'
+      + '.header { text-align:center; border-bottom:1px dashed #000; padding-bottom:8px; margin-bottom:10px; }'
+      + '.header img { width:130px; height:auto; display:block; margin:0 auto 5px auto; }'
+      + '.header .shop { font-size:17px; font-weight:bold; letter-spacing:2px; margin-bottom:2px; }'
+      + '.header .tel { font-size:12px; }'
+      + '.title-sec { text-align:center; border-bottom:1px dashed #000; padding-bottom:8px; margin-bottom:10px; }'
+      + '.title-sec .lbl { font-size:17px; font-weight:bold; letter-spacing:1px; margin-bottom:4px; }'
+      + '.title-sec .bill-no { font-size:15px; font-weight:bold; }'
+      + '.title-sec .bill-dt { font-size:11px; color:#000; margin-top:3px; }'
+      + '.info-sec { border-bottom:1px dashed #000; padding-bottom:8px; margin-bottom:10px; }'
+      + '.irow { display:flex; justify-content:space-between; margin-bottom:4px; font-size:12px; }'
+      + '.irow .k { font-weight:bold; }'
+      + '.items-sec { margin-bottom:10px; }'
+      + 'table { width:100%; border-collapse:collapse; font-size:12px; }'
+      + 'th,td { padding:3px 4px; }'
+      + 'th { text-align:left; border-bottom:1px solid #000; }'
+      + 'td { vertical-align:top; }'
+      + 'td:nth-child(2) { text-align:center; }'
+      + 'td:nth-child(3) { text-align:right; white-space:nowrap; }'
+      + '.tot-sec { border-top:1px dashed #000; padding-top:7px; margin-bottom:10px; }'
+      + '.tot-row { display:flex; justify-content:space-between; margin-bottom:4px; font-size:13px; }'
+      + '.grand-row { display:flex; justify-content:space-between; font-size:16px; font-weight:bold; border-top:1px solid #000; padding-top:5px; margin-top:5px; margin-bottom:7px; }'
+      + '.pay-box { border:1px solid #ccc; border-radius:3px; padding:5px 7px; font-size:12px; margin-bottom:10px; }'
+      + '.pay-box span { font-weight:bold; }'
+      + '.barcode-sec { text-align:center; border-top:1px dashed #000; border-bottom:1px dashed #000; padding:8px 0 6px 0; margin-bottom:10px; }'
+      + '.barcode-sec svg { width:100%; max-width:90mm; }'
+      + '.barcode-sec .bc-text { font-size:13px; font-weight:bold; letter-spacing:2px; margin-top:4px; }'
+      + '.footer { text-align:center; font-size:11px; color:#000; }'
+      + '.footer p { margin-bottom:3px; }'
+      + '<\/style></head><body><div class="receipt">'
+      + '<div class="header"><img src="/images/logo.png" alt="Logo" onerror="this.style.display=\'none\'" /><div class="shop">PLAY AREA</div><div class="tel">Tel : 077 306 3000</div></div>'
+      + '<div class="title-sec"><div class="lbl">FINAL BILL</div><div class="bill-no">' + barcode + '</div><div class="bill-dt">' + new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString() + '</div></div>'
+      + '<div class="info-sec"><div class="irow"><span class="k">Customer</span><span>' + customerName + '</span></div>' + infoRows + '</div>'
+      + itemsSection
+      + '<div class="tot-sec">' + totalsHtml + '</div>'
+      + '<div class="pay-box">Payment Method: &nbsp;<span>' + payDisplay + '</span></div>'
+      + '<div class="barcode-sec"><svg id="reprintBarcode"></svg><div class="bc-text">' + barcode + '</div></div>'
+      + '<div class="footer"><p>We hope you enjoyed the play area!</p><p>Come again for more fun times.</p><p style="font-weight:bold; margin-top:3px;">Powered by JAAN Network Ltd.</p></div>'
+      + '</div>'
+      + '<script>if(typeof JsBarcode!=="undefined"&&"' + barcode + '"){JsBarcode("#reprintBarcode","' + barcode + '",{format:"CODE128",width:3,height:80,displayValue:false,margin:5});}window.onload=function(){window.print();};<\/script>'
+      + '</body></html>';
+
+    const w = window.open('', '_blank', 'width=700,height=900');
+    if (!w) { alert('Failed to open print window. Please allow popups.'); return; }
+    w.document.write(html);
+    w.document.close();
+  } catch (err) {
+    alert('Failed to load bill data for reprint.');
+  }
+};
+// ────────────────────────────────────────────────────────────────
 
 
 
@@ -500,3 +620,4 @@ $(document).ready(function () {
 
 
 </script>
+
