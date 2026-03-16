@@ -131,11 +131,11 @@
                 </div>
               </template>
               <template v-else>
-                <template v-if="products.data.length > 0">
+                <template v-if="products.length > 0">
                   <div class="overflow-x-auto">
                     <div class="grid grid-flow-col auto-cols-[25%] gap-8">
                       <div
-                        v-for="product in products.data"
+                        v-for="product in products"
                         :key="product.id"
                         @click="
                           (product.stock_quantity > 0 && (!product.expire_date || new Date(product.expire_date) >= new Date())) && selectProduct(product)
@@ -323,23 +323,7 @@
                       </div>
                     </div>
                   </div> -->
-                  <div class="flex items-center justify-between mt-6">
-                    <div class="pagination flex space-x-4">
-                      <button
-                        @click="fetchPage(products.prev_page_url)"
-                        :disabled="!products.prev_page_url"
-                        class="px-4 py-2 text-[15px] text-white bg-blue-500 rounded-md shadow-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                      >
-                        Previous
-                      </button>
-                      <button
-                        @click="fetchPage(products.next_page_url)"
-                        :disabled="!products.next_page_url"
-                        class="px-4 py-2 text-[15px] text-white bg-blue-500 rounded-md shadow-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                      >
-                        Next
-                      </button>
-                    </div>
+                  <div class="flex justify-end mt-6">
                     <button
                       class="px-6 py-2 text-[15px] text-white bg-blue-600 rounded hover:bg-blue-700"
                       @click.prevent="closeModal(true)"
@@ -376,7 +360,7 @@ import { useForm } from "@inertiajs/vue3";
 import { Link } from "@inertiajs/vue3";
 import { debounce } from "lodash";
 
-const products = ref({});
+const products = ref([]);
 // const categories = ref([]); // If you need to fetch categories for filtering
 const loading = ref(false);
 const search = ref("");
